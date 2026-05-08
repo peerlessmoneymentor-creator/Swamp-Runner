@@ -1,0 +1,1906 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Peerless Swamp Run</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Boogaloo&family=Caveat:wght@700&family=Fredoka+One&display=swap');
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:#06100a;overflow:hidden;font-family:'Fredoka One',cursive;}
+  canvas{display:block;position:fixed;inset:0;}
+
+  #hud{position:fixed;top:0;left:0;right:0;padding:10px 16px;display:flex;justify-content:space-between;align-items:flex-start;z-index:20;pointer-events:none;background:linear-gradient(180deg,rgba(6,16,10,.92)0%,transparent 100%);}
+  #hud-left{display:flex;flex-direction:column;gap:2px;}
+  #game-title{font-family:'Boogaloo',cursive;font-size:20px;color:#e8c84a;text-shadow:0 0 14px rgba(232,200,74,.4);}
+  #hud-zone{font-size:11px;color:#7aad6a;letter-spacing:1px;}
+  #hud-center{text-align:center;}
+  #score-label{font-size:10px;color:#7aad6a;letter-spacing:2px;text-transform:uppercase;}
+  #score{font-family:'Boogaloo',cursive;font-size:40px;color:#e8c84a;text-shadow:0 0 14px rgba(232,200,74,.4);line-height:1;}
+  #hud-right{text-align:right;display:flex;flex-direction:column;gap:3px;align-items:flex-end;}
+  #lives{font-size:20px;letter-spacing:2px;}
+  #streak-display{font-family:'Boogaloo',cursive;font-size:16px;color:#00ff88;text-shadow:0 0 8px #00ff88;min-height:20px;}
+
+  /* Fuel bar */
+  #fuel-wrap{position:fixed;bottom:80px;left:16px;z-index:20;pointer-events:none;}
+  #fuel-label{font-size:11px;color:#e8c84a;letter-spacing:2px;margin-bottom:4px;font-family:'Fredoka One',cursive;}
+  #fuel-bar-bg{width:120px;height:12px;background:rgba(255,255,255,.08);border-radius:6px;border:1px solid rgba(232,200,74,.3);overflow:hidden;}
+  #fuel-bar{height:100%;background:linear-gradient(90deg,#e85a1a,#e8c84a);border-radius:6px;transition:width .05s linear;}
+  #fuel-status{font-size:10px;color:#cc4422;margin-top:3px;min-height:14px;font-family:'Fredoka One',cursive;}
+
+  /* Jump / boost status */
+  #action-status{position:fixed;bottom:100px;left:50%;transform:translateX(-50%);z-index:20;pointer-events:none;display:flex;gap:12px;}
+  .action-chip{font-size:12px;color:#7aad6a;letter-spacing:1px;font-family:'Fredoka One',cursive;background:rgba(0,0,0,.4);padding:4px 10px;border-radius:20px;border:1px solid rgba(100,180,80,.2);}
+  .action-chip.ready{color:#e8c84a;border-color:rgba(232,200,74,.4);}
+  .action-chip.active{color:#00ff88;border-color:#00ff88;text-shadow:0 0 8px #00ff88;}
+
+  /* Near miss */
+  #near-miss{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);font-family:'Boogaloo',cursive;font-size:42px;color:#e8c84a;text-shadow:0 0 20px rgba(232,200,74,.7);pointer-events:none;z-index:40;opacity:0;}
+
+  /* Gator warning */
+  #gator-warn{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);font-family:'Boogaloo',cursive;font-size:32px;color:#ff2244;text-shadow:0 0 16px #ff2244;pointer-events:none;z-index:40;opacity:0;}
+
+  /* Feedback floaters */
+  .floater{position:fixed;font-family:'Boogaloo',cursive;font-size:20px;pointer-events:none;z-index:40;animation:floatUp 1s ease forwards;}
+  @keyframes floatUp{0%{opacity:1;transform:translateY(0) scale(1);}50%{transform:translateY(-30px) scale(1.1);}100%{opacity:0;transform:translateY(-70px) scale(0.9);}}
+
+  /* Mobile controls */
+  #mobile-ctrl{position:fixed;bottom:20px;left:0;right:0;display:none;justify-content:center;gap:12px;z-index:25;}
+  #mobile-ctrl button{width:64px;height:64px;background:rgba(74,124,63,.2);border:1.5px solid rgba(232,200,74,.25);color:#e8c84a;font-size:22px;border-radius:50%;cursor:pointer;-webkit-tap-highlight-color:transparent;user-select:none;}
+  #btn-boost-m{background:rgba(200,80,20,.2) !important;border-color:rgba(255,120,40,.4) !important;color:#ff8c44 !important;}
+  #btn-jump-m{background:rgba(0,180,100,.15) !important;border-color:rgba(0,255,136,.3) !important;color:#00ff88 !important;}
+
+  /* Screens */
+  .scr{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:50;padding:24px;text-align:center;}
+  .scr.off{display:none;}
+  .scr-bg{position:absolute;inset:0;background:rgba(6,16,10,.94);}
+  .scr-content{position:relative;z-index:1;max-width:480px;}
+  .main-title{font-family:'Boogaloo',cursive;font-size:clamp(30px,7vw,62px);color:#e8c84a;text-shadow:0 4px 20px rgba(0,0,0,.8),0 0 40px rgba(232,200,74,.4);letter-spacing:2px;line-height:1.1;margin-bottom:4px;}
+  .title-sub{font-family:'Caveat',cursive;font-size:clamp(15px,3vw,22px);color:#8fad7a;margin-bottom:8px;}
+  .title-divider{width:200px;height:2px;background:linear-gradient(90deg,transparent,#e8c84a,transparent);margin:14px auto;}
+  .title-desc{font-size:13px;color:#8fad7a;max-width:400px;line-height:1.85;margin-bottom:22px;}
+  .play-btn{font-family:'Boogaloo',cursive;font-size:24px;letter-spacing:2px;background:linear-gradient(135deg,#4a7c3f,#2d5c28);color:#e8c84a;border:2px solid rgba(232,200,74,.5);border-radius:50px;padding:14px 46px;cursor:pointer;box-shadow:0 0 28px rgba(232,200,74,.25),0 6px 20px rgba(0,0,0,.5);transition:all .2s;margin-bottom:14px;}
+  .play-btn:hover{transform:scale(1.05);box-shadow:0 0 44px rgba(232,200,74,.5);}
+  .controls-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;max-width:380px;margin:0 auto;}
+  .ctrl-chip{background:rgba(0,0,0,.3);border:1px solid rgba(100,160,80,.2);border-radius:8px;padding:8px 12px;text-align:left;}
+  .ctrl-key{font-family:'Boogaloo',cursive;font-size:14px;color:#e8c84a;display:block;}
+  .ctrl-desc{font-size:11px;color:#7aad6a;display:block;margin-top:1px;}
+  .go-title{font-family:'Boogaloo',cursive;font-size:clamp(36px,8vw,70px);color:#c0392b;text-shadow:0 4px 20px rgba(0,0,0,.8);letter-spacing:3px;margin-bottom:4px;}
+  .go-reason{font-family:'Caveat',cursive;font-size:20px;color:#8fad7a;margin-bottom:12px;}
+  .go-score{font-family:'Boogaloo',cursive;font-size:50px;color:#e8c84a;text-shadow:0 0 20px rgba(232,200,74,.5);margin-bottom:3px;}
+  .go-best{font-size:13px;color:#7aad6a;margin-bottom:18px;}
+  .go-stats{font-size:13px;color:#8fad7a;line-height:2.4;margin-bottom:20px;}
+  .go-stats span{color:#f5e6c8;}
+  #retry-screen{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:56;background:rgba(6,16,10,.96);text-align:center;padding:24px;opacity:0;pointer-events:none;transition:opacity .35s;}
+  #retry-screen.show{opacity:1;pointer-events:all;}
+  #retry-title{font-family:'Boogaloo',cursive;font-size:clamp(32px,7vw,58px);color:#FF8C00;text-shadow:0 0 20px rgba(255,140,0,.5);letter-spacing:3px;margin-bottom:6px;}
+  #retry-level{font-family:'Fredoka One',cursive;font-size:15px;color:#7aad6a;margin-bottom:10px;}
+  #retry-reason{font-family:'Caveat',cursive;font-size:20px;color:#8fad7a;margin-bottom:20px;max-width:360px;line-height:1.5;}
+  #retry-lives{font-size:24px;margin-bottom:18px;letter-spacing:4px;}
+  .retry-btn-row{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;}
+  .retry-btn{font-family:'Boogaloo',cursive;font-size:20px;letter-spacing:1px;border-radius:50px;padding:12px 32px;cursor:pointer;border:2px solid;transition:all .2s;}
+  .retry-btn.yes{background:linear-gradient(135deg,#4a7c3f,#2d5c28);color:#e8c84a;border-color:rgba(232,200,74,.5);box-shadow:0 0 20px rgba(232,200,74,.2);}
+  .retry-btn.no{background:transparent;color:#FF4444;border-color:rgba(255,68,68,.4);}
+  .retry-btn:hover{transform:scale(1.05);}
+  /* Level screens */
+  #level-intro{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:55;background:rgba(6,16,10,.96);text-align:center;padding:24px;opacity:0;pointer-events:none;transition:opacity .4s;}
+  #level-intro.show{opacity:1;pointer-events:all;}
+  #level-num{font-family:'Boogaloo',cursive;font-size:clamp(14px,3vw,18px);color:#7aad6a;letter-spacing:4px;text-transform:uppercase;margin-bottom:4px;}
+  #level-name{font-family:'Boogaloo',cursive;font-size:clamp(30px,7vw,60px);color:#e8c84a;text-shadow:0 0 24px rgba(232,200,74,.5);letter-spacing:2px;line-height:1.1;margin-bottom:8px;}
+  #level-desc{font-family:'Fredoka One',cursive;font-size:14px;color:#8fad7a;max-width:340px;line-height:1.8;margin-bottom:24px;}
+  #level-target{font-family:'Boogaloo',cursive;font-size:18px;color:#FF8C00;margin-bottom:20px;}
+  #level-complete{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:55;background:rgba(6,16,10,.96);text-align:center;padding:24px;opacity:0;pointer-events:none;transition:opacity .4s;}
+  #level-complete.show{opacity:1;pointer-events:all;}
+  #lc-title{font-family:'Boogaloo',cursive;font-size:clamp(36px,8vw,68px);color:#00FF88;text-shadow:0 0 24px rgba(0,255,136,.5);letter-spacing:3px;margin-bottom:6px;}
+  #lc-level{font-family:'Fredoka One',cursive;font-size:16px;color:#7aad6a;margin-bottom:14px;}
+  #lc-stats{font-family:'Fredoka One',cursive;font-size:13px;color:#8fad7a;line-height:2.4;margin-bottom:20px;background:rgba(0,0,0,.3);border:1px solid rgba(0,255,136,.15);border-radius:10px;padding:12px 20px;text-align:left;}
+  #lc-stats span{color:#f5e6c8;}
+  #level-progress{position:fixed;top:70px;left:50%;transform:translateX(-50%);z-index:20;pointer-events:none;display:flex;gap:6px;align-items:center;}
+  .lp-dot{width:10px;height:10px;border-radius:50%;background:rgba(255,255,255,.15);border:1.5px solid rgba(232,200,74,.3);transition:all .4s;}
+  .lp-dot.done{background:#e8c84a;border-color:#e8c84a;box-shadow:0 0 8px rgba(232,200,74,.6);}
+  .lp-dot.active{background:#FF8C00;border-color:#FF8C00;box-shadow:0 0 10px rgba(255,140,0,.7);transform:scale(1.3);}
+  #heat-wrap{position:fixed;bottom:52px;right:16px;z-index:20;pointer-events:none;text-align:right;}
+  #heat-label{font-size:10px;color:#cc6622;letter-spacing:2px;text-transform:uppercase;font-family:'Fredoka One',cursive;margin-bottom:3px;}
+  #heat-bar-bg{width:110px;height:10px;background:rgba(255,255,255,.07);border-radius:5px;border:1px solid rgba(200,80,20,.3);overflow:hidden;margin-left:auto;}
+  #heat-bar{height:100%;border-radius:5px;background:linear-gradient(90deg,#e8c84a,#FF8C00,#FF2244);width:0%;transition:width .4s ease;}
+  #heat-level{font-family:'Boogaloo',cursive;font-size:13px;color:#FF8C00;margin-top:2px;}
+  #earl-warning{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);font-family:'Boogaloo',cursive;font-size:clamp(22px,5vw,38px);color:#FF2244;text-shadow:0 0 24px #FF2244,0 0 50px rgba(255,34,68,.4);pointer-events:none;z-index:42;opacity:0;text-align:center;line-height:1.4;}
+  #powerup-hud{position:fixed;top:72px;left:50%;transform:translateX(-50%);z-index:20;pointer-events:none;display:flex;gap:8px;flex-wrap:wrap;justify-content:center;}
+  .pu-chip{font-family:'Fredoka One',cursive;font-size:12px;padding:4px 10px;border-radius:16px;border:1.5px solid;display:flex;align-items:center;gap:5px;background:rgba(6,16,10,.85);animation:puPulse 1s ease infinite alternate;}
+  @keyframes puPulse{from{opacity:.85;}to{opacity:1;}}
+  .pu-bar{height:3px;border-radius:2px;margin-top:2px;transition:width .1s linear;}
+  #countdown{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:45;pointer-events:none;opacity:0;transition:opacity .3s;background:rgba(6,16,10,.7);}
+  #countdown-num{font-family:'Boogaloo',cursive;font-size:clamp(80px,20vw,150px);color:#e8c84a;text-shadow:0 0 40px rgba(232,200,74,.7);line-height:1;}
+  #countdown-tip{font-family:'Fredoka One',cursive;font-size:15px;color:#8fad7a;margin-top:8px;letter-spacing:1px;}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<div id="hud">
+  <div id="hud-left">
+    <div id="game-title">🐊 Peerless Swamp Run</div>
+    <div id="hud-zone">📍 Atchafalaya Basin, Louisiana</div>
+  </div>
+  <div id="hud-center">
+    <div id="score-label">Distance</div>
+    <div id="score">0m</div>
+  </div>
+  <div id="hud-right">
+    <div style="display:flex;align-items:center;gap:8px;justify-content:flex-end;">
+      <div id="lives">❤️❤️❤️</div>
+      <button id="music-btn" style="background:rgba(0,0,0,.4);border:1px solid rgba(232,200,74,.3);color:#e8c84a;font-size:16px;border-radius:20px;padding:3px 10px;cursor:pointer;font-family:'Fredoka One',cursive;pointer-events:all;" title="Toggle Music">🎵</button>
+    </div>
+    <div id="streak-display"></div>
+  </div>
+</div>
+
+<div id="fuel-wrap">
+  <div id="fuel-label">⛽ FUEL</div>
+  <div id="fuel-bar-bg"><div id="fuel-bar" style="width:100%"></div></div>
+  <div id="fuel-status"></div>
+</div>
+
+<div id="action-status">
+  <div class="action-chip" id="chip-boost">⚡ BOOST [Space]</div>
+  <div class="action-chip" id="chip-jump">🚀 JUMP [Shift]</div>
+  <div class="action-chip" id="chip-brake">🛑 BRAKE [X]</div>
+</div>
+
+<div id="powerup-hud"></div>
+<div id="heat-wrap">
+  <div id="heat-label">🌡️ SWAMP HEAT</div>
+  <div id="heat-bar-bg"><div id="heat-bar"></div></div>
+  <div id="heat-level">LEVEL 1 — CHILL</div>
+</div>
+<div id="earl-warning">🐊 BIG EARL IS HUNTING YOU 🐊<br><span style="font-size:.6em;color:#FF8C00;">OUTRUN HIM OR BECOME LUNCH</span></div>
+<div id="near-miss">NEAR MISS! 🔥</div>
+<div id="gator-warn">⚠️ GATOR INCOMING!</div>
+<div id="countdown"><div id="countdown-num">3</div><div id="countdown-tip"></div></div>
+
+<div id="mobile-ctrl">
+  <button id="btn-up">▲</button>
+  <button id="btn-boost-m">⚡ BOOST</button>
+  <button id="btn-brake-m" style="background:rgba(200,50,20,.2) !important;border-color:rgba(255,100,50,.4) !important;color:#ff6633 !important;">🛑 BRAKE</button>
+  <button id="btn-dn">▼</button>
+</div>
+<div id="tap-hint" style="position:fixed;bottom:100px;left:50%;transform:translateX(-50%);font-size:12px;color:rgba(138,173,106,.7);letter-spacing:1px;z-index:24;pointer-events:none;font-family:'Fredoka One',cursive;display:none;">TAP SCREEN TO JUMP 🚀</div>
+
+<!-- Title -->
+<div class="scr" id="title">
+  <div class="scr-bg"></div>
+  <div class="scr-content">
+    <div style="font-size:clamp(48px,10vw,80px);margin-bottom:4px;">🚤</div>
+    <div class="main-title">PEERLESS<br>SWAMP RUN</div>
+    <div class="title-sub">Atchafalaya Basin · Louisiana</div>
+    <div class="title-divider"></div>
+    <div class="title-desc">Dodge gators, logs, stumps and swamp debris. Manage your fuel, jump over low obstacles, score near-misses, and watch out for gators that LUNGE at you from the bank. How far can you go, cher?</div>
+    <button class="play-btn" id="s-start">🐊 LET'S GO, CHER!</button>
+    <div style="margin-top:-6px;margin-bottom:8px;">
+      <button onclick="speakCajun()" style="background:transparent;border:1px solid rgba(138,173,106,.3);color:#7aad6a;font-family:'Fredoka One',cursive;font-size:12px;padding:4px 14px;border-radius:20px;cursor:pointer;letter-spacing:1px;">🔊 HEAR DA SWAMP</button>
+    </div>
+    <div id="desktop-controls" class="controls-grid">
+      <div class="ctrl-chip"><span class="ctrl-key">↑ ↓ / W S</span><span class="ctrl-desc">Steer the boat</span></div>
+      <div class="ctrl-chip"><span class="ctrl-key">Space — Hold ⚡</span><span class="ctrl-desc">Boost — burns fuel</span></div>
+      <div class="ctrl-chip"><span class="ctrl-key">Shift — Jump 🚀</span><span class="ctrl-desc">Hop over logs & branches</span></div>
+      <div class="ctrl-chip"><span class="ctrl-key">X or B — Brake 🛑</span><span class="ctrl-desc">Hold to slow down — uses a little fuel</span></div>
+      <div class="ctrl-chip"><span class="ctrl-key">Near-Miss 🔥</span><span class="ctrl-desc">Thread obstacles for bonus</span></div>
+    </div>
+    <div id="mobile-controls" class="controls-grid" style="display:none;">
+      <div class="ctrl-chip"><span class="ctrl-key">▲ ▼ Buttons</span><span class="ctrl-desc">Steer the boat up & down</span></div>
+      <div class="ctrl-chip"><span class="ctrl-key">⚡ BOOST — Hold Down</span><span class="ctrl-desc">Hold the boost button to accelerate — drains fuel</span></div>
+      <div class="ctrl-chip"><span class="ctrl-key">🛑 BRAKE — Hold Down</span><span class="ctrl-desc">Hold brake button to slow down — uses a little fuel</span></div>
+      <div class="ctrl-chip"><span class="ctrl-key">Tap Screen 🚀</span><span class="ctrl-desc">Quick tap anywhere = jump over logs & branches</span></div>
+      <div class="ctrl-chip"><span class="ctrl-key">2-Finger Hold</span><span class="ctrl-desc">Two fingers on screen = brake</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- Level Intro Screen -->
+<div id="level-intro">
+  <div id="level-num">LEVEL 1</div>
+  <div id="level-name">BAYOU BACKROADS</div>
+  <div style="width:120px;height:2px;background:linear-gradient(90deg,transparent,#e8c84a,transparent);margin:12px auto;"></div>
+  <div id="level-desc">A lazy stretch of bayou. Light debris, no gators yet. Get your sea legs, cher.</div>
+  <div id="level-target">🏁 Reach 300m to advance</div>
+  <button class="play-btn" id="btn-level-start">🚤 LET'S GO!</button>
+</div>
+
+<!-- Level Complete Screen -->
+<div id="level-complete">
+  <div id="lc-title">LEVEL COMPLETE!</div>
+  <div id="lc-level">Bayou Backroads cleared 🌿</div>
+  <div id="lc-stats"></div>
+  <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-top:4px;">
+    <button class="play-btn" id="btn-next-level">➡️ NEXT LEVEL</button>
+    <button class="play-btn" id="btn-replay-level" style="background:linear-gradient(135deg,#2a5c3f,#1a3c28);">🔄 REPLAY LEVEL</button>
+    <button class="play-btn" id="btn-quit-level" style="background:transparent;border:2px solid rgba(255,68,68,.4);color:#FF4444;box-shadow:none;">🚪 QUIT</button>
+  </div>
+</div>
+
+<!-- Level Progress dots (shown during gameplay) -->
+<div id="level-progress"></div>
+
+<!-- Retry Screen -->
+<div id="retry-screen">
+  <div id="retry-title">WRECKED! 🚤💥</div>
+  <div id="retry-level">Level 1 — Bayou Backroads</div>
+  <div id="retry-reason">The swamp got ya, cher.</div>
+  <div id="retry-lives">❤️❤️❤️</div>
+  <div style="font-family:'Fredoka One',cursive;font-size:13px;color:#FF8C00;margin-bottom:18px;">⚠️ ONE RETRY PER LEVEL — USE IT WISELY</div>
+  <div class="retry-btn-row">
+    <button class="retry-btn yes" id="btn-retry">🔄 TRY AGAIN</button>
+    <button class="retry-btn no" id="btn-no-retry">💀 GIVE UP</button>
+  </div>
+</div>
+
+<!-- Game Over -->
+<div class="scr off" id="gameover">
+  <div class="scr-bg"></div>
+  <div class="scr-content">
+    <div class="go-title">BOAT WRECKED!</div>
+    <div class="go-reason" id="go-reason">The swamp got ya, cher.</div>
+    <div id="go-score-wrap" style="margin-bottom:6px;">
+      <div id="go-score" style="font-family:Boogaloo,cursive;font-size:50px;color:#e8c84a;text-shadow:0 0 20px rgba(232,200,74,.5);">0m</div>
+      <div id="go-heat" style="font-family:Fredoka One,cursive;font-size:13px;color:#FF8C00;margin-top:-4px;letter-spacing:1px;"></div>
+    </div>
+    <div id="go-close-to-best" style="font-family:Fredoka One,cursive;font-size:13px;color:#FF8C00;margin-bottom:6px;min-height:20px;"></div>
+    <div id="go-best" style="font-size:13px;color:#7aad6a;margin-bottom:14px;"></div>
+    <div id="go-score-breakdown" style="background:rgba(0,0,0,.3);border:1px solid rgba(232,200,74,.15);border-radius:10px;padding:12px 18px;margin-bottom:14px;text-align:left;font-family:Fredoka One,cursive;font-size:13px;color:#8fad7a;line-height:2.2;"></div>
+    <div id="go-stats" style="font-size:13px;color:#8fad7a;line-height:2.2;margin-bottom:14px;"></div>
+    <button class="play-btn" id="s-restart" style="font-size:22px;padding:14px 40px;">🚤 ONE MORE RUN!</button>
+  </div>
+</div>
+
+<script>
+const C = document.getElementById('c');
+const X = C.getContext('2d');
+
+function resize() { C.width = window.innerWidth; C.height = window.innerHeight; initLayout(); }
+window.addEventListener('resize', resize);
+
+let WATER_TOP, WATER_BOT, LANE_H, LANE_TOPS;
+const LANE_COUNT = 5;
+const IS_MOBILE = ('ontouchstart' in window) || (window.innerWidth < 600);
+
+function initLayout() {
+  WATER_TOP = C.height * 0.18;
+  WATER_BOT = C.height * 0.82;
+  LANE_H = (WATER_BOT - WATER_TOP) / LANE_COUNT;
+  LANE_TOPS = Array.from({length:LANE_COUNT},(_,i)=>WATER_TOP+i*LANE_H);
+}
+resize();
+
+// ── GAME STATE ────────────────────────────────────────────────────────────────
+const LS_BEST = 'peerlessSwampBest2'; // v2 resets old best (pts-based now)
+let gs = {
+  running:false, score:0, dist:0, bonusScore:0, lives:3, speed:4, naturalSpeed:4, maxSpeed:13,
+  frame:0, bestScore: parseInt(localStorage.getItem(LS_BEST)||'0'), deathReason:'',
+  fuel:100, maxFuel:100, fuelDraining:false,
+  nearMissStreak:0, nearMissTimer:0,
+  gatorsDodged:0, collectibles:0, jumps:0, nearmisses:0,
+  invincible:0, lastSign:0, signInterval:700,
+};
+
+// ── INPUT ─────────────────────────────────────────────────────────────────────
+const keys = {};
+window.addEventListener('keydown', e => { keys[e.key] = true; if([' ','ArrowUp','ArrowDown','Shift','x','X','b','B'].includes(e.key))e.preventDefault(); });
+window.addEventListener('keyup', e => keys[e.key] = false);
+
+// ── MOBILE TOUCH CONTROLS ─────────────────────────────────────────────────────
+// Tap anywhere on the canvas = jump. Swipe up/down = steer. Hold = boost.
+let touchStartY = null, touchStartTime = 0, touchId = null, touchLongPressTimer = null;
+let swipeActive = false;
+
+document.getElementById('c').addEventListener('touchstart', e => {
+  e.preventDefault();
+  const t = e.changedTouches[0];
+  touchStartY = t.clientY;
+  touchStartTime = Date.now();
+  touchId = t.identifier;
+  swipeActive = false;
+  // If second finger = brake
+  if (e.touches.length >= 2) { mb.brake = true; return; }
+  // Long press timer: after 300ms without movement = boost
+  touchLongPressTimer = setTimeout(() => {
+    if (!swipeActive && gs.running) mb.boost = true;
+  }, 300);
+}, { passive: false });
+
+document.getElementById('c').addEventListener('touchmove', e => {
+  e.preventDefault();
+  if (touchLongPressTimer) { clearTimeout(touchLongPressTimer); touchLongPressTimer = null; }
+  for (let t of e.changedTouches) {
+    if (t.identifier !== touchId) continue;
+    const dy = t.clientY - touchStartY;
+    if (Math.abs(dy) > 12) {
+      swipeActive = true;
+      if (dy < 0) { mb.up = true; mb.dn = false; }
+      else { mb.dn = true; mb.up = false; }
+    }
+  }
+}, { passive: false });
+
+document.getElementById('c').addEventListener('touchend', e => {
+  e.preventDefault();
+  mb.up = false; mb.dn = false;
+  const duration = Date.now() - touchStartTime;
+  // Short tap (no swipe, under 300ms) = jump
+  if (!swipeActive && duration < 300 && !player.jumping && gs.running) {
+    keys['Shift'] = true;
+    setTimeout(() => { keys['Shift'] = false; }, 80);
+  }
+  // Release brake when fingers lift
+  if (e.touches.length < 2) mb.brake = false;
+  // Long press released = stop boost
+  mb.boost = false;
+  swipeActive = false; touchId = null;
+}, { passive: false });
+const mb = {up:false,dn:false,boost:false,jump:false,brake:false};
+function bindBtn(id,k){
+  const el=document.getElementById(id);
+  ['touchstart','mousedown'].forEach(ev=>el.addEventListener(ev,e=>{e.preventDefault();mb[k]=true;},{passive:false}));
+  ['touchend','mouseup','touchcancel'].forEach(ev=>el.addEventListener(ev,e=>{e.preventDefault();mb[k]=false;},{passive:false}));
+}
+bindBtn('btn-up','up');bindBtn('btn-dn','dn');bindBtn('btn-boost-m','boost');bindBtn('btn-brake-m','brake');
+if('ontouchstart' in window){
+  document.getElementById('mobile-ctrl').style.display='flex';
+  document.getElementById('tap-hint').style.display='block';
+  document.getElementById('chip-jump').textContent='🚀 TAP TO JUMP';
+  // Show mobile controls, hide desktop on title screen
+  document.getElementById('mobile-controls').style.display='grid';
+  document.getElementById('desktop-controls').style.display='none';
+}
+
+// ── PLAYER ────────────────────────────────────────────────────────────────────
+const player = {x:160,y:0,vy:0,w:90,h:32,bobble:0,trail:[],
+  jumping:false,jumpVy:0,jumpZ:0, // Z = height above water
+  boosting:false,boostTimer:0,boostCooldown:0,
+  hit:false,hitTimer:0,
+};
+
+function initPlayer(){
+  player.y=WATER_TOP+(WATER_BOT-WATER_TOP)/2;
+  player.vy=0;player.jumping=false;player.jumpVy=0;player.jumpZ=0;
+  player.boosting=false;player.boostTimer=0;player.boostCooldown=0;player.braking=false;
+  player.hit=false;player.hitTimer=0;player.trail=[];player.bobble=0;
+}
+
+// ── OBSTACLES ─────────────────────────────────────────────────────────────────
+const OBS = [
+  {id:'gator',  w:90, h:28, jumpable:false, lunge:false, pts:10, label:'Big Earl 🐊'},
+  {id:'gator',  w:90, h:28, jumpable:false, lunge:true,  pts:15, label:'Lunging Gator 🐊'},
+  {id:'log',    w:120,h:22, jumpable:true,  lunge:false, pts:5,  label:'Cypress Log 🪵'},
+  {id:'stump',  w:44, h:44, jumpable:false, lunge:false, pts:7,  label:"Ol' Stump 🌿"},
+  {id:'branch', w:100,h:16, jumpable:true,  lunge:false, pts:5,  label:'Swamp Branch 🌿'},
+  {id:'debris', w:32, h:32, jumpable:false, lunge:false, pts:6,  label:'Crawfish Trap 🦞'},
+  {id:'barrel', w:36, h:40, jumpable:false, lunge:false, pts:8,  label:'Mystery Barrel 🛢️'},
+  {id:'lily',   w:50, h:16, jumpable:true,  lunge:false, pts:3,  label:'Lily Pad 🌸'},
+];
+
+let obstacles=[], collectibles=[], signs=[], bgScroll=0;
+let obTick=0;
+
+const SIGN_TEXTS=['GATOR CROSSING 🐊','WATCH YO SELF','BEWARE BIG EARL','NO WAKE ZONE... LOL','CAJUN COUNTRY 🌶️','TURN BACK NOW','THEM GATORS HUNGRY','BON CHANCE, CHER','LAST STOP B4 DA SWAMP','WATCH OUT 4 STUMPS','LAISSEZ LES BONS TEMPS','GATOR BAIT SOLD HERE','MERCI BEAUCOUP'];
+const LOOT=[{emoji:'🦞',pts:50,label:'+50 Crawfish!'},{emoji:'🍩',pts:30,label:'+30 Beignet!'},{emoji:'🍺',pts:20,label:'+20 Abita!'}];
+
+// ── POWER-UPS ─────────────────────────────────────────────────────────────────
+// weight: higher = more common. fuel+magnet=4, shield+slowmo=2, repellent=1, repair=0.5
+const POWERUPS = [
+  { id:'fuel',      emoji:'⛽', label:'FUEL CAN!',        color:'#e8c84a', border:'#b89830', duration:0,    weight:4, desc:'Tank refilled!' },
+  { id:'magnet',    emoji:'🧲', label:'MAGNET!',          color:'#00CFFF', border:'#0088bb', duration:6000, weight:4, desc:'Goodies fly to you!' },
+  { id:'shield',    emoji:'🛡️', label:'SHIELD!',          color:'#7B68EE', border:'#5548bb', duration:5000, weight:2, desc:'One hit blocked!' },
+  { id:'slowmo',    emoji:'🐢', label:'SLOW-MO!',         color:'#00FF88', border:'#00aa55', duration:4000, weight:2, desc:'Swamp slows down!' },
+  { id:'repellent', emoji:'🦟', label:'GATOR REPELLENT!', color:'#FF8C00', border:'#cc6600', duration:5000, weight:1, desc:'Gators scatter!' },
+  { id:'repair',    emoji:'🔧', label:'REPAIR KIT!',      color:'#FF2244', border:'#aa0022', duration:0,    weight:0.5, desc:'+1 Life restored!' },
+];
+
+let powerups = []; // active on-screen power-up items
+let activePU = {}; // currently active effects: { id: expiresAt }
+let puTick = 0;
+const PU_SPAWN_INTERVAL = 420; // frames between power-up spawns
+
+function puWeightedRandom() {
+  const total = POWERUPS.reduce((s,p) => s + p.weight, 0);
+  let r = Math.random() * total;
+  for (const p of POWERUPS) { r -= p.weight; if (r <= 0) return p; }
+  return POWERUPS[0];
+}
+
+function spawnPowerup() {
+  if (Math.random() > 0.55) return; // 45% chance each interval
+  const def = puWeightedRandom();
+  const lane = Math.floor(Math.random() * LANE_COUNT);
+  powerups.push({
+    ...def,
+    x: C.width + 30 + (IS_MOBILE ? C.width * 0.35 : 0),
+    y: LANE_TOPS[lane] + LANE_H / 2,
+    bob: Math.random() * Math.PI * 2,
+    glow: 0,
+  });
+}
+
+function collectPowerup(pu) {
+  const now = Date.now();
+  if (pu.id === 'fuel') {
+    gs.fuel = Math.min(gs.maxFuel, gs.fuel + 60);
+    floatText('⛽ +FUEL!', player.x - 40, player.y - 60, pu.color);
+  } else if (pu.id === 'repair') {
+    if (gs.lives < 3) { gs.lives++; floatText('🔧 +1 LIFE!', player.x - 40, player.y - 60, pu.color); }
+    else { gs.bonusScore += 100; floatText('🔧 +100 BONUS!', player.x - 40, player.y - 60, pu.color); }
+  } else {
+    activePU[pu.id] = now + pu.duration;
+    floatText(pu.emoji + ' ' + pu.label, player.x - 60, player.y - 60, pu.color);
+  }
+  updatePUHud();
+}
+
+function updatePUHud() {
+  const hud = document.getElementById('powerup-hud');
+  hud.innerHTML = '';
+  const now = Date.now();
+  for (const [id, expiresAt] of Object.entries(activePU)) {
+    if (now >= expiresAt) { delete activePU[id]; continue; }
+    const def = POWERUPS.find(p => p.id === id);
+    if (!def) continue;
+    const pct = Math.max(0, (expiresAt - now) / def.duration * 100);
+    const chip = document.createElement('div');
+    chip.className = 'pu-chip';
+    chip.style.color = def.color;
+    chip.style.borderColor = def.border;
+    chip.innerHTML = `${def.emoji} <span>${def.id.toUpperCase()}</span><div class="pu-bar" style="width:${pct}%;background:${def.color};"></div>`;
+    hud.appendChild(chip);
+  }
+}
+
+function isPUActive(id) {
+  return activePU[id] && Date.now() < activePU[id];
+}
+
+function spawnObs(){
+  // Filter gators based on current level's gatorChance
+  const lv = LEVELS[currentLevel];
+  const pool = OBS.filter(o => o.id !== 'gator' || Math.random() < lv.gatorChance);
+  const safePool = pool.length > 0 ? pool : [OBS[1]]; // fallback to log
+  const def = safePool[Math.floor(Math.random()*safePool.length)];
+  const lane = Math.floor(Math.random()*LANE_COUNT);
+  const laneY = LANE_TOPS[lane]+LANE_H/2;
+  // Gator lunge: starts at bank, lunges to player lane
+  let startY = laneY, targetY = null;
+  if(def.lunge){
+    startY = Math.random()>0.5 ? WATER_TOP+12 : WATER_BOT-12;
+    targetY = LANE_TOPS[Math.floor(Math.random()*LANE_COUNT)]+LANE_H/2;
+  }
+  obstacles.push({
+    ...def, x:C.width+def.w+(IS_MOBILE ? C.width*0.35 : 0), y:startY,
+    targetY, lunging:false, lungeTimer:0, lungeWarned:false,
+    wobble:Math.random()*Math.PI*2, wSpd:.03+Math.random()*.03,
+    animF:0, z:0,
+    nearMissChecked:false,
+  });
+}
+
+function spawnLoot(){
+  if(Math.random()>0.4)return;
+  const def=LOOT[Math.floor(Math.random()*LOOT.length)];
+  const lane=Math.floor(Math.random()*LANE_COUNT);
+  collectibles.push({...def,x:C.width+20+(IS_MOBILE?C.width*0.35:0),y:LANE_TOPS[lane]+LANE_H/2,bob:Math.random()*Math.PI*2});
+}
+
+// ── BACKGROUND ────────────────────────────────────────────────────────────────
+let trees=[], fireflies=[];
+function initBG(){
+  trees=[];fireflies=[];
+  for(let i=0;i<20;i++){
+    trees.push({x:i*(C.width/8)+Math.random()*80,h:60+Math.random()*80,w:28+Math.random()*36,col:['#1a3310','#1e3d14','#162d0e'][Math.floor(Math.random()*3)],bank:'top',hasMoss:Math.random()>.4});
+    trees.push({x:i*(C.width/8)+Math.random()*80,h:60+Math.random()*80,w:28+Math.random()*36,col:['#1a3310','#1e3d14','#162d0e'][Math.floor(Math.random()*3)],bank:'bot',hasMoss:Math.random()>.4});
+  }
+  for(let i=0;i<10;i++) fireflies.push({x:Math.random()*C.width,y:0,phase:Math.random()*Math.PI*2});
+}
+
+// ── DRAW BACKGROUND ───────────────────────────────────────────────────────────
+function drawBG(){
+  const W=C.width,H=C.height;
+  // Sky
+  const sg=X.createLinearGradient(0,0,0,WATER_TOP);sg.addColorStop(0,'#050c08');sg.addColorStop(1,'#0a1c0f');
+  X.fillStyle=sg;X.fillRect(0,0,W,WATER_TOP);
+  // Bottom sky
+  const bg=X.createLinearGradient(0,WATER_BOT,0,H);bg.addColorStop(0,'#0a1c0f');bg.addColorStop(1,'#050c08');
+  X.fillStyle=bg;X.fillRect(0,WATER_BOT,W,H-WATER_BOT);
+  // Moon
+  X.fillStyle='#f5e6c8';X.shadowColor='#f5e6c8';X.shadowBlur=30;
+  X.beginPath();X.arc(W*.82,WATER_TOP*.22,20,0,Math.PI*2);X.fill();X.shadowBlur=0;
+  // Stars
+  for(let i=0;i<50;i++){const sx=(Math.sin(i*127.3)*.5+.5)*W,sy=(Math.cos(i*311.7)*.5+.5)*WATER_TOP*.9;const a=.3+Math.sin(gs.frame*.02+i)*.25;X.fillStyle=`rgba(245,230,200,${a})`;X.beginPath();X.arc(sx,sy,i%5===0?1.5:.7,0,Math.PI*2);X.fill();}
+  // Fireflies
+  fireflies.forEach((f,i)=>{f.phase+=.04;f.x-=gs.speed*.1;if(f.x<-10)f.x=W+10;f.y=WATER_TOP-15-Math.abs(Math.sin(f.phase))*35;const fa=Math.abs(Math.sin(f.phase*1.3));if(fa>.5){X.fillStyle=`rgba(200,255,100,${fa*.8})`;X.shadowColor='rgba(200,255,100,.8)';X.shadowBlur=8;X.beginPath();X.arc(f.x,f.y,2,0,Math.PI*2);X.fill();X.shadowBlur=0;}});
+
+  // Water
+  const wg=X.createLinearGradient(0,WATER_TOP,0,WATER_BOT);wg.addColorStop(0,'#0b2e1d');wg.addColorStop(.5,'#0e3824');wg.addColorStop(1,'#0a2a1a');
+  X.fillStyle=wg;X.fillRect(0,WATER_TOP,W,WATER_BOT-WATER_TOP);
+  // Lane dashes
+  for(let i=1;i<LANE_COUNT;i++){X.strokeStyle='rgba(255,255,255,.03)';X.lineWidth=1;X.setLineDash([14,22]);X.beginPath();X.moveTo(0,WATER_TOP+i*LANE_H);X.lineTo(W,WATER_TOP+i*LANE_H);X.stroke();X.setLineDash([]);}
+  // Water ripples
+  const sc=bgScroll%80;
+  for(let i=0;i<10;i++){const ry=WATER_TOP+(i/10)*(WATER_BOT-WATER_TOP)+8;const rx=(i*139-sc*2)%(W+60)-30;X.strokeStyle=`rgba(255,255,255,${.025+Math.sin(gs.frame*.04+i)*.015})`;X.lineWidth=1.2;X.beginPath();X.moveTo(rx,ry);X.quadraticCurveTo(rx+18,ry-3,rx+36,ry);X.stroke();}
+  // Fog wisps
+  for(let i=0;i<3;i++){const fx=((i*280-bgScroll*.25)%(W+200))-100;const fy=WATER_TOP+(i%2===0?18:WATER_BOT-WATER_TOP-36);const fg=X.createRadialGradient(fx,fy,0,fx,fy,70);fg.addColorStop(0,'rgba(100,150,80,.06)');fg.addColorStop(1,'transparent');X.fillStyle=fg;X.beginPath();X.ellipse(fx,fy,110,22,0,0,Math.PI*2);X.fill();}
+
+  // Banks
+  X.fillStyle='#162810';X.fillRect(0,WATER_TOP-26,W,30);X.fillRect(0,WATER_BOT-2,W,30);
+  // Bank grass
+  X.fillStyle='#2d4a1e';
+  for(let i=0;i<32;i++){const gx=((i*91-bgScroll*.75)%(W+30))-15;const gy1=WATER_TOP-8+Math.sin(i*1.3)*5;const gy2=WATER_BOT+8+Math.sin(i*1.7)*5;[[-4,-13,4,-13],[8,-11,12,-11]].forEach(([ax,ay,bx,by])=>{X.beginPath();X.moveTo(gx,gy1);X.lineTo(gx+ax,gy1+ay);X.lineTo(gx+bx,gy1+by);X.fill();X.beginPath();X.moveTo(gx,gy2);X.lineTo(gx+ax,gy2-ay);X.lineTo(gx+bx,gy2-by);X.fill();});}
+
+  // Trees
+  trees.forEach(t=>{
+    const tx=((t.x-bgScroll*.55)%(W+t.w*2+40))-t.w;
+    if(tx<-t.w-10||tx>W+10)return;
+    const isTop=t.bank==='top';const ty=isTop?WATER_TOP-10:WATER_BOT+10;const dir=isTop?-1:1;
+    X.fillStyle='#120e06';X.fillRect(tx+t.w/2-4,ty,4,dir*t.h);
+    X.fillStyle=t.col;X.beginPath();X.ellipse(tx+t.w/2,ty+dir*(t.h*.5),t.w/2,t.h*.6,0,0,Math.PI*2);X.fill();
+    X.fillStyle='rgba(0,0,0,.18)';X.beginPath();X.ellipse(tx+t.w/2+7,ty+dir*(t.h*.55),t.w/3,t.h*.42,.15,0,Math.PI*2);X.fill();
+    if(t.hasMoss){X.strokeStyle='#3a5a20';X.lineWidth=2;for(let m=0;m<3;m++){const mx=tx+t.w*.2+m*t.w*.25;const mlen=14+Math.sin(gs.frame*.02+m)*4;X.beginPath();X.moveTo(mx,ty+dir*t.h*.35);X.bezierCurveTo(mx-3,ty+dir*t.h*.35+dir*mlen*.5,mx+3,ty+dir*t.h*.35+dir*mlen*.5,mx,ty+dir*t.h*.35+dir*mlen);X.stroke();}}
+  });
+
+  // Signs
+  signs.forEach((s,i)=>{
+    s.x-=gs.speed*.65;if(s.x<-200){signs.splice(i,1);return;}
+    X.fillStyle='#2a1208';X.fillRect(s.x+12,WATER_TOP-68,6,62);X.fillRect(s.x+12,WATER_BOT+4,6,58);
+    X.fillStyle='#7a5810';X.beginPath();X.roundRect(s.x,WATER_TOP-78,170,28,4);X.fill();
+    X.strokeStyle='#c8941e';X.lineWidth=1.5;X.beginPath();X.roundRect(s.x,WATER_TOP-78,170,28,4);X.stroke();
+    X.fillStyle='#f5e6c8';X.font='bold 12px Fredoka One,cursive';X.textAlign='center';X.textBaseline='middle';
+    X.fillText(s.text,s.x+85,WATER_TOP-64);X.textAlign='left';X.textBaseline='alphabetic';
+  });
+}
+
+// ── DRAW OBSTACLES ────────────────────────────────────────────────────────────
+function drawObs(ob){
+  ob.wobble+=ob.wSpd;ob.animF++;
+  const bY=Math.sin(ob.wobble)*3;
+  const cx=ob.x, cy=ob.y+bY-ob.z; // z lifts up when jumping (player)
+  const alpha=ob.lunging&&!ob.lungeWarned?0.5:1;
+  X.globalAlpha=alpha;
+  const mobScale = IS_MOBILE ? 1.18 : 1;
+  X.save();X.translate(cx,cy);X.scale(mobScale, mobScale);
+
+  if(ob.id==='gator'){
+    // Lunge warning pulse
+    if(ob.lunge&&!ob.lunging&&ob.x<C.width*.6){
+      const pulse=Math.abs(Math.sin(gs.frame*.2));
+      X.shadowColor='#FF2244';X.shadowBlur=10+pulse*10;
+    }
+    X.fillStyle='#2a5218';X.beginPath();X.ellipse(0,0,ob.w/2,ob.h/2,0,0,Math.PI*2);X.fill();
+    X.fillStyle='#345e20';X.beginPath();X.ellipse(-ob.w/2+8,0,20,ob.h/2-2,0,0,Math.PI*2);X.fill();
+    X.fillStyle='#2d5018';X.beginPath();X.ellipse(-ob.w/2-6,0,14,ob.h/4,0,0,Math.PI*2);X.fill();
+    X.fillStyle='#f5e6c8';for(let t=-4;t<=4;t+=4){X.beginPath();X.moveTo(-ob.w/2-6,t-3);X.lineTo(-ob.w/2-14,t-5);X.lineTo(-ob.w/2-6,t+3);X.fill();}
+    X.fillStyle='#ff4400';X.shadowColor='#ff4400';X.shadowBlur=8;X.beginPath();X.arc(-ob.w/2+14,-ob.h/4,4,0,Math.PI*2);X.fill();X.fillStyle='#000';X.shadowBlur=0;X.beginPath();X.arc(-ob.w/2+14,-ob.h/4,2,0,Math.PI*2);X.fill();
+    X.fillStyle='#1e3d12';for(let r=-20;r<30;r+=14){X.beginPath();X.moveTo(r,-ob.h/2-2);X.lineTo(r+5,-ob.h/2-8);X.lineTo(r+10,-ob.h/2-2);X.fill();}
+    X.fillStyle='#2a5218';X.beginPath();X.moveTo(ob.w/2-10,0);X.quadraticCurveTo(ob.w/2+18,-8+Math.sin(ob.animF*.1)*7,ob.w/2+28,0);X.lineTo(ob.w/2,0);X.fill();
+    X.shadowBlur=0;
+
+  }else if(ob.id==='log'){
+    X.fillStyle='#5a3010';X.beginPath();X.ellipse(0,0,ob.w/2,ob.h/2,0,0,Math.PI*2);X.fill();
+    X.strokeStyle='#3d2008';X.lineWidth=2;[ob.w/2-4,ob.w/2-10].forEach(r=>{X.beginPath();X.ellipse(0,0,r,ob.h/2-3,0,0,Math.PI*2);X.stroke();});
+    X.fillStyle='#7a4820';X.beginPath();X.ellipse(-ob.w/2,0,10,ob.h/2,0,0,Math.PI*2);X.fill();
+    X.fillStyle='#3a6a20';X.globalAlpha=.65;X.beginPath();X.ellipse(10,-ob.h/2+2,22,5,0,0,Math.PI*2);X.fill();X.globalAlpha=1;
+
+  }else if(ob.id==='stump'){
+    X.fillStyle='#3a2010';X.beginPath();X.ellipse(0,4,ob.w/2,ob.h/2-4,0,0,Math.PI*2);X.fill();
+    X.fillStyle='#5a3818';X.beginPath();X.ellipse(0,-4,ob.w/2-2,ob.h/2-8,0,0,Math.PI*2);X.fill();
+    X.strokeStyle='#2a1808';X.lineWidth=1.5;X.beginPath();X.ellipse(0,-4,ob.w/2-2,ob.h/2-8,0,0,Math.PI*2);X.stroke();
+    for(let r=3;r<ob.w/2-4;r+=5){X.strokeStyle=`rgba(40,20,8,.35)`;X.lineWidth=1;X.beginPath();X.ellipse(0,-4,r,(ob.h/2-8)*r/(ob.w/2-2),0,0,Math.PI*2);X.stroke();}
+    X.fillStyle='#3a6a20';X.globalAlpha=.8;X.beginPath();X.ellipse(0,-ob.h/2+4,ob.w/2-4,7,0,0,Math.PI*2);X.fill();X.globalAlpha=1;
+
+  }else if(ob.id==='branch'){
+    X.strokeStyle='#3a2010';X.lineWidth=ob.h;X.lineCap='round';X.beginPath();X.moveTo(-ob.w/2,0);X.quadraticCurveTo(0,-7,ob.w/2,4);X.stroke();
+    X.strokeStyle='#2a1808';X.lineWidth=ob.h-4;X.beginPath();X.moveTo(-ob.w/2,0);X.quadraticCurveTo(0,-7,ob.w/2,4);X.stroke();
+    X.strokeStyle='#3a2010';X.lineWidth=4;X.beginPath();X.moveTo(-10,-4);X.lineTo(-22,-18);X.stroke();X.beginPath();X.moveTo(18,0);X.lineTo(28,-16);X.stroke();
+
+  }else if(ob.id==='debris'){
+    X.fillStyle='#7a6030';X.beginPath();X.roundRect(-ob.w/2,-ob.h/2,ob.w,ob.h,4);X.fill();
+    X.strokeStyle='#5a4820';X.lineWidth=2;X.beginPath();X.roundRect(-ob.w/2,-ob.h/2,ob.w,ob.h,4);X.stroke();
+    X.strokeStyle='rgba(0,0,0,.3)';X.lineWidth=1;for(let n=-8;n<12;n+=8){X.beginPath();X.moveTo(n,-ob.h/2+3);X.lineTo(n-5,ob.h/2-3);X.stroke();}
+
+  }else if(ob.id==='lily'){
+    X.fillStyle='#2d7020';X.globalAlpha=.88;X.beginPath();X.ellipse(0,0,ob.w/2,ob.h/2,0,0,Math.PI*2);X.fill();X.globalAlpha=1;
+    X.fillStyle='#ff88aa';X.beginPath();X.arc(0,0,5,0,Math.PI*2);X.fill();
+
+  }else if(ob.id==='barrel'){
+    X.fillStyle='#4a3818';X.beginPath();X.ellipse(0,4,ob.w/2,ob.h/2-4,0,0,Math.PI*2);X.fill();
+    X.fillStyle='#3a2c12';X.fillRect(-ob.w/2+2,-ob.h/2+6,ob.w-4,ob.h-12);
+    X.strokeStyle='#6a5020';X.lineWidth=4;[-8,0,8].forEach(hy=>{X.beginPath();X.moveTo(-ob.w/2+2,hy);X.lineTo(ob.w/2-2,hy);X.stroke();});
+    X.fillStyle='#4a3818';X.beginPath();X.ellipse(0,-ob.h/2+6,ob.w/2-2,8,0,0,Math.PI*2);X.fill();
+    X.fillStyle='rgba(0,200,100,.4)';X.beginPath();X.arc(5,ob.h/2-2,4,0,Math.PI*2);X.fill();
+  }
+
+  X.restore();
+  X.globalAlpha=1;
+
+  // Jumpable indicator — pulsing glow + JUMP label
+  if(ob.jumpable){
+    const jp=Math.abs(Math.sin(ob.animF*.08))*.5+.4;
+    X.strokeStyle='rgba(0,255,136,'+jp+')';X.lineWidth=2.5;
+    X.beginPath();X.arc(cx,cy,ob.w/2+8,0,Math.PI*2);X.stroke();
+    X.font='bold 11px Fredoka One,cursive';
+    X.fillStyle='rgba(0,255,136,'+(jp+.2)+')';
+    X.textAlign='center';X.textBaseline='alphabetic';
+    X.shadowColor='#00ff88';X.shadowBlur=6;
+    X.fillText('JUMP!',cx,cy-ob.h/2-14);
+    X.shadowBlur=0;X.textAlign='left';
+  }
+
+  // Water splash ring under obstacle
+  X.strokeStyle='rgba(100,200,150,.07)';X.lineWidth=2;X.beginPath();X.ellipse(cx,cy+ob.h/2,ob.w/2+4,6,0,0,Math.PI*2);X.stroke();
+}
+
+// ── DRAW PLAYER ───────────────────────────────────────────────────────────────
+function drawPlayer(){
+  const bY=Math.sin(player.bobble)*2.5;
+  player.bobble+=.07;
+  const px=player.x, py=player.y+bY-player.jumpZ;
+
+  // Wake trail
+  if(!player.jumping){player.trail.push({x:px-player.w/2,y:py,age:0});}
+  player.trail=player.trail.filter(t=>t.age<28);
+  player.trail.forEach(t=>{t.age++;const a=(1-t.age/28)*.22;X.fillStyle=`rgba(150,220,180,${a})`;X.beginPath();X.ellipse(t.x,t.y,11+t.age*.5,3.5+t.age*.1,0,0,Math.PI*2);X.fill();X.strokeStyle=`rgba(180,240,200,${a*.5})`;X.lineWidth=1;X.beginPath();X.moveTo(t.x,t.y);X.lineTo(t.x-t.age*1.4,t.y-t.age*.45);X.stroke();X.beginPath();X.moveTo(t.x,t.y);X.lineTo(t.x-t.age*1.4,t.y+t.age*.45);X.stroke();});
+
+  // Boost flame
+  if(player.boosting){const fl=Math.random();X.fillStyle=`rgba(255,${80+fl*120},0,${.7+fl*.3})`;X.beginPath();X.moveTo(px-player.w/2-4,py-6);X.lineTo(px-player.w/2-18-fl*14,py);X.lineTo(px-player.w/2-4,py+6);X.fill();}
+  // Brake spray — water churning behind boat
+  if(player.braking){
+    for(let i=0;i<3;i++){
+      const spx=px-player.w/2-Math.random()*20;
+      const spy=py+(Math.random()-0.5)*player.h;
+      X.fillStyle=`rgba(100,220,180,${0.4+Math.random()*0.4})`;
+      X.beginPath();X.arc(spx,spy,2+Math.random()*3,0,Math.PI*2);X.fill();
+    }
+  }
+
+  // Jump shadow on water
+  if(player.jumping&&player.jumpZ>2){X.fillStyle=`rgba(0,0,0,${.2+player.jumpZ/80*.25})`;X.beginPath();X.ellipse(px,player.y+bY,player.w/2*(1-player.jumpZ/80*.3),6*(1-player.jumpZ/80*.4),0,0,Math.PI*2);X.fill();}
+
+  // Shield aura
+  if(isPUActive('shield')){
+    const sa=Math.abs(Math.sin(gs.frame*.08))*.4+.4;
+    X.strokeStyle=`rgba(123,104,238,${sa})`;X.lineWidth=3;X.shadowColor='#7B68EE';X.shadowBlur=14;
+    X.beginPath();X.ellipse(px,py,player.w/2+12,player.h/2+12,0,0,Math.PI*2);X.stroke();X.shadowBlur=0;
+  }
+  // Slow-mo water tint
+  if(isPUActive('slowmo')){
+    X.strokeStyle='rgba(0,255,136,.15)';X.lineWidth=2;
+    X.beginPath();X.ellipse(px,py,player.w/2+16,player.h/2+16,0,0,Math.PI*2);X.stroke();
+  }
+  // Magnet arc
+  if(isPUActive('magnet')){
+    const ma=Math.abs(Math.sin(gs.frame*.1))*.4+.3;
+    X.strokeStyle=`rgba(0,207,255,${ma})`;X.lineWidth=1.5;
+    X.beginPath();X.arc(px,py-10,50,Math.PI*1.1,Math.PI*1.9);X.stroke();
+    X.beginPath();X.arc(px,py-10,60,Math.PI*1.15,Math.PI*1.85);X.stroke();
+  }
+  // Hit flash
+  if(player.hit){X.fillStyle=`rgba(255,50,50,${.35+Math.sin(player.hitTimer*.5)*.35})`;X.beginPath();X.ellipse(px,py,player.w/2+8,player.h/2+8,0,0,Math.PI*2);X.fill();}
+
+  X.save();X.translate(px,py);
+  // Shadow
+  X.fillStyle='rgba(0,0,0,.28)';X.beginPath();X.ellipse(4,player.h/2+3,player.w/2+3,7,0,0,Math.PI*2);X.fill();
+  // Hull
+  X.fillStyle='#cc3322';X.beginPath();X.moveTo(-player.w/2,-player.h/4);X.lineTo(player.w/2-14,-player.h/4);X.lineTo(player.w/2+10,0);X.lineTo(player.w/2-14,player.h/4);X.lineTo(-player.w/2,player.h/4);X.closePath();X.fill();
+  X.fillStyle='#882211';X.beginPath();X.moveTo(-player.w/2,0);X.lineTo(player.w/2+4,0);X.lineTo(player.w/2+4,player.h/4);X.lineTo(-player.w/2,player.h/4);X.closePath();X.fill();
+  // Deck
+  X.fillStyle='#d4a855';X.beginPath();X.rect(-player.w/2+8,-player.h/4+4,player.w-28,player.h/2-8);X.fill();
+  // PEERLESS text
+  X.fillStyle='#f5e6c8';X.font='bold 9px Fredoka One,cursive';X.textAlign='center';X.textBaseline='middle';X.fillText('PEERLESS',0,player.h/8+2);X.textAlign='left';X.textBaseline='alphabetic';
+  // Windshield
+  X.fillStyle='rgba(150,220,255,.3)';X.beginPath();X.roundRect(player.w/2-40,-player.h/4+3,22,player.h/2-7,3);X.fill();X.strokeStyle='rgba(200,240,255,.45)';X.lineWidth=1;X.beginPath();X.roundRect(player.w/2-40,-player.h/4+3,22,player.h/2-7,3);X.stroke();
+  // Captain
+  X.fillStyle='#3a2a10';X.beginPath();X.arc(player.w/2-28,-player.h/4-4,7,0,Math.PI*2);X.fill();X.fillRect(player.w/2-32,-player.h/4-2,8,10);
+  X.fillStyle='#1a1208';X.fillRect(player.w/2-34,-player.h/4-10,12,5);X.fillRect(player.w/2-32,-player.h/4-14,8,6);
+  // Engine
+  X.fillStyle='#4a4a4a';X.beginPath();X.roundRect(-player.w/2-10,-6,14,12,2);X.fill();
+  // Running lights
+  X.fillStyle='#00ff88';X.shadowColor='#00ff88';X.shadowBlur=8;X.beginPath();X.arc(player.w/2+5,-player.h/4+2,3,0,Math.PI*2);X.fill();
+  X.fillStyle='#ff4444';X.shadowColor='#ff4444';X.beginPath();X.arc(player.w/2+5,player.h/4-2,3,0,Math.PI*2);X.fill();X.shadowBlur=0;
+  X.restore();
+}
+
+function drawCollectibles(){
+  collectibles.forEach(col=>{col.bob+=.06;const by=Math.sin(col.bob)*5;X.font='26px serif';X.textAlign='center';X.textBaseline='middle';X.shadowColor='#e8c84a';X.shadowBlur=10;X.fillText(col.emoji,col.x,col.y+by);X.shadowBlur=0;X.textAlign='left';X.textBaseline='alphabetic';});
+  // Draw power-ups
+  powerups.forEach(pu => {
+    pu.glow = (pu.glow || 0) + 0.06;
+    const by = Math.sin(pu.bob) * 6;
+    const pulse = Math.abs(Math.sin(pu.glow)) * 0.5 + 0.6;
+    const cx = pu.x, cy = pu.y + by;
+    // Glow ring
+    X.shadowColor = pu.color; X.shadowBlur = 18 * pulse;
+    // Background circle
+    X.fillStyle = 'rgba(6,16,10,0.75)';
+    X.beginPath(); X.arc(cx, cy, 20, 0, Math.PI * 2); X.fill();
+    X.strokeStyle = pu.border; X.lineWidth = 2.5;
+    X.beginPath(); X.arc(cx, cy, 20, 0, Math.PI * 2); X.stroke();
+    // Emoji
+    X.font = '20px serif'; X.textAlign = 'center'; X.textBaseline = 'middle';
+    X.fillText(pu.emoji, cx, cy);
+    X.shadowBlur = 0;
+    // Label above
+    X.font = 'bold 10px Fredoka One,cursive';
+    X.fillStyle = pu.color;
+    X.shadowColor = pu.color; X.shadowBlur = 5;
+    X.fillText(pu.id.toUpperCase(), cx, cy - 30);
+    X.shadowBlur = 0; X.textAlign = 'left'; X.textBaseline = 'alphabetic';
+  });
+}
+
+// ── UPDATE ────────────────────────────────────────────────────────────────────
+function update(){
+  if(!gs.running)return;
+  gs.frame++;bgScroll+=gs.speed;
+
+  // Speed ramp — always update naturalSpeed; boost is layered on top
+  if(gs.frame%280===0&&gs.naturalSpeed<gs.maxSpeed){
+    gs.naturalSpeed=Math.min(gs.maxSpeed,gs.naturalSpeed+.35);
+    if(!player.boosting) gs.speed=gs.naturalSpeed; // only sync if not boosting
+  }
+
+  // Distance / score — bonusScore persists separately from dist reset
+  gs.dist+=gs.speed*.05;gs.score=Math.floor(gs.dist)+gs.bonusScore;
+
+  // Fuel handled in boost section below
+
+  // Input: steer
+  const upKey=keys['ArrowUp']||keys['w']||keys['W']||mb.up;
+  const dnKey=keys['ArrowDown']||keys['s']||keys['S']||mb.dn;
+  if(upKey)player.vy=Math.max(player.vy-.85,-7);
+  else if(dnKey)player.vy=Math.min(player.vy+.85,7);
+  else player.vy*=.84;
+  player.y+=player.vy;
+  player.y=Math.max(WATER_TOP+player.h/2,Math.min(WATER_BOT-player.h/2,player.y));
+
+  // Input: boost — hold to boost, release to restore speed cleanly
+  const boostKey = keys[' '] || mb.boost;
+  if (boostKey && gs.fuel > 0) {
+    // Capture baseSpeed exactly ONCE when boost starts, before speed changes
+    if (!player.boosting) {
+      player.boosting = true;
+      gs.baseSpeed = gs.naturalSpeed; // use naturalSpeed, not current (possibly boosted) speed
+    }
+    gs.fuel = Math.max(0, gs.fuel - 1.4);
+    gs.speed = Math.min(gs.maxSpeed + 2, gs.naturalSpeed + 3.5);
+  } else {
+    // Release boost — snap speed back to natural (non-boosted) speed
+    if (player.boosting) {
+      player.boosting = false;
+      gs.speed = gs.naturalSpeed;
+    }
+    gs.fuel = Math.min(gs.maxFuel, gs.fuel + 0.4);
+  }
+  // Out of fuel — cut boost immediately
+  if (gs.fuel <= 0 && player.boosting) {
+    player.boosting = false;
+    gs.speed = gs.naturalSpeed;
+  }
+
+  // ── BRAKE ────────────────────────────────────────────────────────────────
+  const brakeKey = keys['x'] || keys['X'] || keys['b'] || keys['B'] || mb.brake;
+  if (brakeKey && gs.running && !player.boosting) {
+    player.braking = true;
+    // Slow down toward 40% of natural speed, smoothly
+    const brakeTarget = gs.naturalSpeed * 0.38;
+    gs.speed = Math.max(brakeTarget, gs.speed - 0.25);
+    // Tiny fuel drain so brake isn't totally free
+    gs.fuel = Math.max(0, gs.fuel - 0.3);
+  } else {
+    if (player.braking) {
+      // Release brake — ease speed back up to natural
+      gs.speed = Math.min(gs.naturalSpeed, gs.speed + 0.2);
+      if (gs.speed >= gs.naturalSpeed) player.braking = false;
+    }
+  }
+
+  // Input: jump
+  const jumpKey=keys['Shift']||mb.jump;
+  if(jumpKey&&!player.jumping&&!player.hit){
+    player.jumping=true;player.jumpVy=-10;gs.jumps++;
+    floatText('JUMP! 🚀',player.x-30,player.y-60,'#00ff88');
+  }
+  if(player.jumping){
+    player.jumpVy+=.55;player.jumpZ=Math.max(0,player.jumpZ-player.jumpVy);
+    if(player.jumpZ<=0&&player.jumpVy>0){player.jumping=false;player.jumpZ=0;player.jumpVy=0;
+      // Landing splash
+      floatText('SPLASH!💦',player.x-30,player.y-40,'#4adaff');
+    }
+  }
+
+  // Fuel UI
+  document.getElementById('fuel-bar').style.width=(gs.fuel/gs.maxFuel*100)+'%';
+  document.getElementById('fuel-bar').style.background=gs.fuel<25?'linear-gradient(90deg,#cc2200,#ee4400)':'linear-gradient(90deg,#e85a1a,#e8c84a)';
+  document.getElementById('fuel-status').textContent=gs.fuel<15?'⚠️ LOW FUEL':'';
+  document.getElementById('chip-boost').className='action-chip'+(player.boosting?' active':gs.fuel>10?' ready':'');
+  document.getElementById('chip-jump').className='action-chip'+(player.jumping?' active':!player.jumping?' ready':'');
+  document.getElementById('chip-brake').className='action-chip'+(player.braking?' active':' ready');
+
+  // Spawn
+  obTick++;
+  const lvObRate = LEVELS[currentLevel] ? LEVELS[currentLevel].obstacleRate : 60;
+  const mobileSpawnBonus = IS_MOBILE ? 18 : 0; // extra frames between spawns on mobile
+  const spawnRate=Math.max(22, lvObRate - gs.naturalSpeed * 2.5 + mobileSpawnBonus);
+  if(obTick>=spawnRate){spawnObs();spawnLoot();obTick=0;}
+  puTick++;if(puTick>=PU_SPAWN_INTERVAL){puTick=0;spawnPowerup();}
+  if(gs.score-gs.lastSign>gs.signInterval){gs.lastSign=gs.score;gs.signInterval=500+Math.random()*700;signs.push({x:C.width+10,text:SIGN_TEXTS[Math.floor(Math.random()*SIGN_TEXTS.length)]});}
+
+  // Update obstacles
+  obstacles.forEach((ob,i)=>{
+    ob.x -= (isPUActive('slowmo') ? gs.speed*0.45 : gs.speed) * (gs.speed/4);
+
+    // Gator lunge mechanic
+    if(ob.lunge&&!ob.lunging&&ob.x<C.width*.55&&ob.x>C.width*.3){
+      ob.lunging=true;ob.targetY=player.y;
+      showWarning();
+    }
+    if(ob.vy){ob.y+=ob.vy;} // repellent knockback
+    if(ob.lunging&&ob.targetY!==null&&!ob.vy){
+      const dy=ob.targetY-ob.y;ob.y+=Math.sign(dy)*Math.min(6,Math.abs(dy));
+    }
+
+    if(ob.x<-ob.w-20){
+      // Near miss: if player passed close without hit
+      if(!ob.nearMissChecked){ob.nearMissChecked=true;}
+      obstacles.splice(i,1);gs.gatorsDodged+=ob.id==='gator'?1:0;return;
+    }
+
+    // Near-miss detection: passed the player closely (within 30px) without collision
+    if(!ob.nearMissChecked&&ob.x<player.x&&ob.x>player.x-60){
+      ob.nearMissChecked=true;
+      const dy=Math.abs(ob.y-player.y);const dx=Math.abs(ob.x-player.x);
+      const hitW=ob.w/2+player.w/2-10,hitH=ob.h/2+player.h/2-10;
+      if(dy<hitH+40&&dy>hitH-6&&dx<hitW+30){
+        // Near miss!
+        gs.nearMissStreak++;gs.nearmisses++;
+        const bonus=15*gs.nearMissStreak;gs.bonusScore+=bonus;
+        const el=document.getElementById('near-miss');
+        el.textContent=gs.nearMissStreak>1?`NEAR MISS x${gs.nearMissStreak}! 🔥 +${bonus}`:'NEAR MISS! 🔥 +'+bonus;
+        el.style.opacity='1';el.style.transition='opacity .1s';
+        setTimeout(()=>{el.style.transition='opacity .6s';el.style.opacity='0';},1000);
+        floatText('+'+bonus+'!',player.x,player.y-50,'#e8c84a');
+      } else {gs.nearMissStreak=0;}
+    }
+
+    // Collision check (skip if jumping over jumpable obstacle)
+    const jumping=player.jumping&&player.jumpZ>12&&ob.jumpable;
+    if(gs.invincible<=0&&!jumping&&checkHit(ob)){
+      if(isPUActive('shield')){
+        // Shield blocks one hit — consume it
+        delete activePU['shield'];
+        gs.invincible=80;
+        floatText('🛡️ SHIELD BLOCKED IT!',C.width/2-90,C.height/2-60,'#7B68EE');
+        updatePUHud();
+      } else if(isPUActive('repellent')&&ob.id==='gator'){
+        // Repellent scares gators away — they slide offscreen
+        ob.vy = (ob.y < player.y ? -8 : 8);
+        ob.x -= 20;
+        floatText('🦟 REPELLED!',C.width/2-60,C.height/2-60,'#FF8C00');
+      } else {
+        gs.lives--;gs.invincible=130;player.hit=true;player.hitTimer=0;
+        gs.deathReason=getReason(ob);gs.nearMissStreak=0;
+        floatText('OUCH! '+ob.label,C.width/2-80,C.height/2-60,'#FF4444');
+        if(gs.lives<=0)endGame();
+      }
+    }
+  });
+
+  // Collectibles
+  collectibles.forEach((col,i)=>{col.x-=gs.speed;if(col.x<-40){collectibles.splice(i,1);return;}if(Math.hypot(player.x-col.x,player.y-col.y)<player.h/2+16){gs.bonusScore+=col.pts;gs.collectibles++;gs.bonusScore+=col.pts;floatText(col.label,C.width/2-60,C.height/2-60,'#e8c84a');collectibles.splice(i,1);}});
+
+  // Update power-ups on screen
+  const puSpeed = isPUActive('slowmo') ? gs.speed * 0.45 : gs.speed;
+  const magnetOn = isPUActive('magnet');
+  powerups.forEach((pu, i) => {
+    pu.x -= puSpeed;
+    pu.bob += 0.07;
+    if (pu.x < -40) { powerups.splice(i, 1); return; }
+    // Magnet pulls collectibles toward player
+    if (magnetOn) {
+      const dx = player.x - pu.x, dy = player.y - pu.y;
+      const dist = Math.hypot(dx, dy);
+      if (dist < 200) { pu.x += dx / dist * 5; pu.y += dy / dist * 5; }
+    }
+    // Collect
+    if (Math.hypot(player.x - pu.x, player.y - pu.y) < player.h / 2 + 20) {
+      collectPowerup(pu); powerups.splice(i, 1);
+    }
+  });
+  // Magnet also pulls regular collectibles
+  if (magnetOn) {
+    collectibles.forEach(col => {
+      const dx = player.x - col.x, dy = player.y - col.y;
+      const dist = Math.hypot(dx, dy);
+      if (dist < 220 && dist > 1) { col.x += dx / dist * 6; col.y += dy / dist * 6; }
+    });
+  }
+  // Expire power-ups and update HUD
+  updatePUHud();
+
+  // Invincible / hit
+  if(gs.invincible>0)gs.invincible--;
+  if(player.hit){player.hitTimer++;if(player.hitTimer>42)player.hit=false;}
+
+  // Streak display
+  document.getElementById('streak-display').textContent=gs.nearMissStreak>=2?`🔥 STREAK x${gs.nearMissStreak}`:'';
+  // Swamp Heat + Big Earl
+  updateHeat();
+  updateEarl();
+  // Level finish line check
+  checkFinishLine();
+
+  // HUD
+  document.getElementById('score').textContent=gs.score+'m';
+  document.getElementById('lives').textContent=[0,1,2].map(i=>i<gs.lives?'❤️':'🖤').join('');
+}
+
+function checkHit(ob){
+  const m = IS_MOBILE ? 14 : 9; // wider forgiveness on mobile
+  return player.x+player.w/2-m>ob.x-ob.w/2&&player.x-player.w/2+m<ob.x+ob.w/2&&
+    player.y+player.h/2-m>ob.y-ob.h/2&&player.y-player.h/2+m<ob.y+ob.h/2;
+}
+
+function showWarning(){
+  const el=document.getElementById('gator-warn');
+  el.style.opacity='1';el.style.transition='opacity .1s';
+  setTimeout(()=>{el.style.transition='opacity .5s';el.style.opacity='0';},700);
+}
+
+const REASONS = {
+  gator: [
+    "Big Earl filed a lunch claim. 🐊",
+    "That gator was just doing his job, cher.",
+    "Got chomped — shoulda zagged when you zigged.",
+    "The swamp said: not today, boo.",
+    "That gator had better reflexes than you.",
+    "Cause of death: underestimating the wildlife.",
+  ],
+  log: [
+    "That log had better defense than LSU.",
+    "Ran dead into that cypress log — it wasn't movin'.",
+    "The log was stationary. You were not. You lost.",
+    "That tree's been in that spot since 1987.",
+    "Ol' log: 1. Peerless: 0.",
+  ],
+  stump: [
+    "You hit that stump like it owed you money.",
+    "Stump saw you comin' a mile away.",
+    "Even Ol' Stump gets his day.",
+    "Them stumps'll getcha every time, cher.",
+    "The stump didn't move. You did. Bad call.",
+  ],
+  branch: [
+    "The swamp reached out and touched you. Rudely.",
+    "Swamp branch had your name on it.",
+    "Didn't see that branch, cher. Now you do.",
+    "Nature said: slow down.",
+  ],
+  debris: [
+    "Crawfish trap snagged the hull — that's on you.",
+    "Cause of death: overconfidence and low fuel.",
+    "That trap had one job. It did it.",
+    "Even the trash in this swamp will end you.",
+  ],
+  barrel: [
+    "Mystery barrel. Mystery outcome. Mystery death.",
+    "Whatever was in that barrel — it wasn't friendly.",
+    "Full of bad luck and worse luck.",
+    "You rolled the barrel. The barrel won.",
+  ],
+  lily: [
+    "Even lily pads can stop a swamp run.",
+    "You got taken out by a flower, cher.",
+    "The most embarrassing death in bayou history.",
+    "A flower. A FLOWER ended your run.",
+  ],
+};
+
+
+// ── SWAMP HEAT SYSTEM ─────────────────────────────────────────────────────────
+const HEAT_LEVELS = [
+  { level:1, threshold:0,    label:'LEVEL 1 — CHILL',         color:'#e8c84a', maxSpd:7,  gatorFreq:0   },
+  { level:2, threshold:200,  label:'LEVEL 2 — WARMING UP',    color:'#FF8C00', maxSpd:9,  gatorFreq:0.1 },
+  { level:3, threshold:450,  label:'LEVEL 3 — GATORS ACTIVE', color:'#FF6600', maxSpd:11, gatorFreq:0.3 },
+  { level:4, threshold:750,  label:'LEVEL 4 — DANGER ZONE',   color:'#FF3300', maxSpd:13, gatorFreq:0.5 },
+  { level:5, threshold:1100, label:'LEVEL 5 — BIG EARL MODE', color:'#FF2244', maxSpd:15, gatorFreq:0.7 },
+];
+
+let currentHeatLevel = 0; // index into HEAT_LEVELS
+let earlActive = false, earlX = 0, earlY = 0, earlSpeed = 0, earlTimer = 0;
+let earlSpawned = false; // has Earl spawned this run yet at L5
+
+function updateHeat() {
+  const dist = gs.score;
+  let newLevel = 0;
+  for (let i = HEAT_LEVELS.length - 1; i >= 0; i--) {
+    if (dist >= HEAT_LEVELS[i].threshold) { newLevel = i; break; }
+  }
+  if (newLevel !== currentHeatLevel) {
+    currentHeatLevel = newLevel;
+    const hl = HEAT_LEVELS[currentHeatLevel];
+    gs.maxSpeed = hl.maxSpd;
+    gs.naturalSpeed = Math.min(gs.naturalSpeed, gs.maxSpeed); // cap natural speed to new max
+    // Flash heat level change
+    floatText('🌡️ ' + hl.label + '!', C.width/2 - 100, C.height * 0.35, hl.color);
+    if (currentHeatLevel === 4 && !earlSpawned) triggerEarl();
+  }
+  // Update heat bar UI
+  const hl = HEAT_LEVELS[currentHeatLevel];
+  const nextHL = HEAT_LEVELS[Math.min(currentHeatLevel+1, HEAT_LEVELS.length-1)];
+  const segStart = hl.threshold, segEnd = nextHL.threshold || (hl.threshold + 400);
+  const pct = currentHeatLevel >= HEAT_LEVELS.length-1 ? 100 :
+    Math.min(100, (gs.score - segStart) / (segEnd - segStart) * 100);
+  document.getElementById('heat-bar').style.width = pct + '%';
+  document.getElementById('heat-level').textContent = hl.label;
+  document.getElementById('heat-level').style.color = hl.color;
+}
+
+// ── BIG EARL CHASE ─────────────────────────────────────────────────────────────
+function triggerEarl() {
+  earlSpawned = true;
+  const warn = document.getElementById('earl-warning');
+  warn.style.transition = 'opacity .2s';
+  warn.style.opacity = '1';
+  setTimeout(() => {
+    warn.style.transition = 'opacity .8s';
+    warn.style.opacity = '0';
+  }, 2500);
+  // Spawn Earl off left side after warning
+  setTimeout(() => {
+    earlActive = true;
+    earlX = -80;
+    earlY = C.height / 2;
+    earlSpeed = 2.5;
+    earlTimer = 900; // frames Earl chases (~15s at 60fps)
+  }, 2800);
+}
+
+function updateEarl() {
+  if (!earlActive) return;
+  earlTimer--;
+  // Earl slowly gains on the player
+  earlSpeed = Math.min(earlSpeed + 0.002, gs.speed + 1.5);
+  earlX += earlSpeed;
+  // Earl tracks player Y
+  const dy = player.y - earlY;
+  earlY += Math.sign(dy) * Math.min(2.5, Math.abs(dy));
+  // Check if Earl catches player
+  if (earlX > player.x - 40 && Math.abs(earlY - player.y) < 40 && gs.invincible <= 0) {
+    if (isPUActive('shield')) {
+      delete activePU['shield']; updatePUHud();
+      floatText('🛡️ SHIELD STOPPED EARL!', C.width/2-100, C.height/2-60, '#7B68EE');
+      earlActive = false;
+    } else if (isPUActive('repellent')) {
+      floatText('🦟 REPELLENT SCARED EARL!', C.width/2-100, C.height/2-60, '#FF8C00');
+      earlActive = false;
+    } else {
+      gs.deathReason = "Big Earl filed a lunch claim. 🐊";
+      gs.lives--; gs.invincible = 140; player.hit = true; player.hitTimer = 0;
+      if (gs.lives <= 0) endGame();
+    }
+  }
+  if (earlTimer <= 0 || earlX > C.width + 200) {
+    earlActive = false;
+    floatText('Earl gave up... for now 😅', C.width/2-80, C.height/2-60, '#e8c84a');
+  }
+}
+
+function drawEarl() {
+  if (!earlActive) return;
+  const ex = earlX, ey = earlY;
+  const scale = 1.8; // Big Earl is BIG
+  X.save(); X.translate(ex, ey); X.scale(scale, scale);
+  // Glow aura
+  X.shadowColor = '#FF2244'; X.shadowBlur = 20;
+  // Body
+  X.fillStyle = '#1a3e10';
+  X.beginPath(); X.ellipse(0, 0, 50, 18, 0, 0, Math.PI*2); X.fill();
+  // Head
+  X.fillStyle = '#245018';
+  X.beginPath(); X.ellipse(50, 0, 22, 15, 0, 0, Math.PI*2); X.fill();
+  // Snout
+  X.fillStyle = '#1e4014';
+  X.beginPath(); X.ellipse(68, 0, 16, 8, 0, 0, Math.PI*2); X.fill();
+  // Teeth
+  X.fillStyle = '#f5e6c8';
+  [-5, 0, 5].forEach(ty => { X.beginPath(); X.moveTo(64, ty-3); X.lineTo(72, ty-5); X.lineTo(64, ty+3); X.fill(); });
+  // Red eyes
+  X.fillStyle = '#ff0000'; X.shadowColor = '#ff0000'; X.shadowBlur = 12;
+  X.beginPath(); X.arc(46, -8, 5, 0, Math.PI*2); X.fill();
+  X.beginPath(); X.arc(54, -8, 5, 0, Math.PI*2); X.fill();
+  X.fillStyle = '#000'; X.shadowBlur = 0;
+  X.beginPath(); X.arc(47, -8, 2.5, 0, Math.PI*2); X.fill();
+  X.beginPath(); X.arc(55, -8, 2.5, 0, Math.PI*2); X.fill();
+  // Ridges
+  X.fillStyle = '#122e08';
+  [-20,-10,0,10,20].forEach(rx => { X.beginPath(); X.moveTo(rx,-18); X.lineTo(rx+5,-26); X.lineTo(rx+10,-18); X.fill(); });
+  // Tail
+  X.fillStyle = '#1a3e10';
+  X.beginPath(); X.moveTo(-50,0); X.quadraticCurveTo(-70,-12,-85,0); X.lineTo(-50,8); X.fill();
+  // EARL label
+  X.shadowBlur = 0; X.restore();
+  X.font = 'bold 11px Fredoka One,cursive';
+  X.fillStyle = '#FF2244'; X.shadowColor = '#FF2244'; X.shadowBlur = 8;
+  X.textAlign = 'center'; X.textBaseline = 'alphabetic';
+  X.fillText('BIG EARL', ex, ey - 40);
+  X.shadowBlur = 0; X.textAlign = 'left'; X.textBaseline = 'alphabetic';
+}
+
+
+// ── LEVEL SYSTEM ──────────────────────────────────────────────────────────────
+const LEVELS = [
+  {
+    num: 1, name: 'Bayou Backroads', emoji: '🌿',
+    desc: 'A lazy stretch of bayou. Light debris, no gators yet. Get your sea legs, cher.',
+    target: 300, startSpeed: 4, maxSpeed: 7,
+    gatorChance: 0,    obstacleRate: 75,
+    color: '#e8c84a',  heatStart: 0,
+  },
+  {
+    num: 2, name: 'Cypress Alley', emoji: '🌲',
+    desc: "Logs and branches thick as thieves. First gators spotted. Stay sharp.",
+    target: 600, startSpeed: 5.5, maxSpeed: 9,
+    gatorChance: 0.25, obstacleRate: 60,
+    color: '#FF8C00',  heatStart: 1,
+  },
+  {
+    num: 3, name: 'Gator Country', emoji: '🐊',
+    desc: "Their turf now. Lunging gators, barrel soup, and debris everywhere. No mercy.",
+    target: 1000, startSpeed: 7, maxSpeed: 11,
+    gatorChance: 0.55, obstacleRate: 44,
+    color: '#FF4400',  heatStart: 2,
+  },
+  {
+    num: 4, name: "Big Earl's Territory", emoji: '👑',
+    desc: "Full heat. Maximum chaos. Big Earl WILL come for you. This is the final stretch, cher.",
+    target: 1500, startSpeed: 9, maxSpeed: 15,
+    gatorChance: 0.75, obstacleRate: 30,
+    color: '#FF2244',  heatStart: 4,
+  },
+];
+
+const LS_LEVEL = 'peerlessSwampLevel';
+let currentLevel = 0; // index into LEVELS
+let levelFinishTriggered = false;
+let finishLineX = 0; // world X position of finish line
+let finishLinePassed = false;
+let levelLevelScore = 0; // score at start of this level (for per-level tracking)
+
+function initLevelProgress() {
+  const wrap = document.getElementById('level-progress');
+  wrap.innerHTML = '';
+  LEVELS.forEach((lv, i) => {
+    const dot = document.createElement('div');
+    dot.className = 'lp-dot' + (i < currentLevel ? ' done' : i === currentLevel ? ' active' : '');
+    dot.title = lv.name;
+    wrap.appendChild(dot);
+  });
+}
+
+function showLevelIntro(lvIdx, onStart) {
+  const lv = LEVELS[lvIdx];
+  document.getElementById('level-num').textContent = 'LEVEL ' + lv.num;
+  document.getElementById('level-name').textContent = lv.emoji + ' ' + lv.name;
+  document.getElementById('level-desc').textContent = lv.desc;
+  document.getElementById('level-target').textContent = '🏁 Reach ' + lv.target + 'm to advance';
+  const intro = document.getElementById('level-intro');
+  intro.style.background = 'rgba(6,16,10,.96)';
+  intro.classList.add('show');
+  // Wire start button
+  const btn = document.getElementById('btn-level-start');
+  btn.onclick = () => {
+    intro.classList.remove('show');
+    setTimeout(onStart, 420);
+  };
+}
+
+function showLevelComplete(lvIdx, onNext) {
+  const lv = LEVELS[lvIdx];
+  document.getElementById('lc-title').textContent = 'LEVEL ' + lv.num + ' COMPLETE!';
+  document.getElementById('lc-level').textContent = lv.emoji + ' ' + lv.name + ' cleared!';
+  const distPts = Math.floor(gs.dist);
+  const nmPts   = gs.nearmisses * 15;
+  const gPts    = gs.gatorsDodged * 10;
+  const puPts   = gs.collectibles * 15;
+  const noHit   = gs.lives === 3 ? 300 : gs.lives === 2 ? 100 : 0;
+  const total   = distPts + nmPts + gPts + puPts + noHit;
+  document.getElementById('lc-stats').innerHTML =
+    `📏 Distance: <span>${distPts}m</span><br>` +
+    `🔥 Near Misses: <span>+${nmPts}</span><br>` +
+    `🐊 Gators Dodged: <span>+${gPts}</span><br>` +
+    `⚡ Power-ups: <span>+${puPts}</span><br>` +
+    (noHit > 0 ? `💚 No-Hit Bonus: <span>+${noHit}</span><br>` : '') +
+    `<div style="border-top:1px solid rgba(0,255,136,.2);margin-top:4px;padding-top:4px;color:#00FF88;font-family:Boogaloo,cursive;font-size:15px;">LEVEL SCORE: <span style="float:right;">${total}</span></div>`;
+  const lc = document.getElementById('level-complete');
+  lc.classList.add('show');
+  const isLast = lvIdx >= LEVELS.length - 1;
+  const btn = document.getElementById('btn-next-level');
+  btn.textContent = isLast ? '🏆 FINISH!' : '➡️ NEXT LEVEL';
+  btn.style.display = isLast ? 'inline-block' : 'inline-block';
+  btn.onclick = () => {
+    lc.classList.remove('show');
+    setTimeout(onNext, 420);
+  };
+
+  // Replay current level
+  document.getElementById('btn-replay-level').onclick = () => {
+    lc.classList.remove('show');
+    setTimeout(() => showLevelIntro(lvIdx, () => startLevel(lvIdx)), 420);
+  };
+
+  // Quit to title screen
+  document.getElementById('btn-quit-level').onclick = () => {
+    lc.classList.remove('show');
+    setTimeout(() => {
+      document.getElementById('title').classList.remove('off');
+    }, 420);
+  };
+}
+
+function startLevel(lvIdx) {
+  const lv = LEVELS[lvIdx];
+  currentLevel = lvIdx;
+  levelFinishTriggered = false;
+  finishLinePassed = false;
+  // Set finish line far ahead in world distance
+  finishLineX = C.width + (lv.target / (lv.startSpeed * 0.05)) * lv.startSpeed;
+  gs.dist = 0; gs.bonusScore = 0; // reset distance for this level
+  const mobileSlowdown = IS_MOBILE ? 0.78 : 1;
+  gs.speed = lv.startSpeed * mobileSlowdown;
+  gs.naturalSpeed = lv.startSpeed * mobileSlowdown;
+  gs.maxSpeed = lv.maxSpeed * mobileSlowdown;
+  // Heat level
+  currentHeatLevel = lv.heatStart;
+  earlActive = false; earlSpawned = false;
+  retryUsed = false; // fresh retry for each new level
+  obstacles = []; collectibles = []; signs = []; powerups = []; activePU = {};
+  obTick = 0; puTick = 0;
+  initPlayer();
+  initBG();
+  initLevelProgress();
+  document.getElementById('heat-bar').style.width = '0%';
+  document.getElementById('heat-level').textContent = HEAT_LEVELS[lv.heatStart].label;
+  document.getElementById('earl-warning').style.opacity = '0';
+  document.getElementById('near-miss').style.opacity = '0';
+  document.getElementById('gator-warn').style.opacity = '0';
+  document.getElementById('level-progress').style.display = 'flex';
+  runCountdown(() => { gs.running = true; });
+}
+
+// Finish line world position (in dist metres)
+function getFinishLineDist() { return LEVELS[currentLevel].target; }
+
+function checkFinishLine() {
+  if (levelFinishTriggered) return;
+  if (gs.dist >= getFinishLineDist()) {
+    levelFinishTriggered = true;
+    gs.running = false;
+    earlActive = false;
+    setTimeout(() => {
+      const isLast = currentLevel >= LEVELS.length - 1;
+      showLevelComplete(currentLevel, () => {
+        if (isLast) {
+          // All levels done — show full game over / victory
+          showVictory();
+        } else {
+          const nextIdx = currentLevel + 1;
+          showLevelIntro(nextIdx, () => startLevel(nextIdx));
+        }
+      });
+    }, 600);
+  }
+}
+
+function showVictory() {
+  // Re-use gameover screen with special victory messaging
+  gs.deathReason = '🏆 YOU COMPLETED ALL 4 LEVELS! SWAMP LEGEND!';
+  document.getElementById('go-title') && (document.getElementById('go-title').textContent = 'YOU WIN, CHER!');
+  endGame();
+}
+
+
+// ── FINISH LINE ───────────────────────────────────────────────────────────────
+function drawFinishLine() {
+  if (levelFinishTriggered) return;
+  const lv = LEVELS[currentLevel];
+  const targetDist = lv.target;
+  const remaining = targetDist - gs.dist;
+  if (remaining > C.width / (gs.speed * 0.05) * gs.speed + 200) return; // too far away
+
+  // Calculate screen X position of finish line
+  const pixelsPerMetre = gs.speed / (gs.speed * 0.05);
+  const screenX = C.width + remaining * pixelsPerMetre * 0.05 * 60;
+  // Simpler: finish line moves like obstacles
+  // Use a fixed world-scroll approach: finish line X relative to bgScroll
+  const FINISH_WORLD = targetDist / 0.05; // world scroll units at target dist
+  const CURRENT_WORLD = gs.dist / 0.05;
+  const fx = C.width * 0.8 + (FINISH_WORLD - CURRENT_WORLD) * gs.speed;
+  if (fx > C.width + 60 || fx < -60) return;
+
+  // Checkered finish banner across water
+  const W = C.width;
+  const squareW = 20;
+  const bannerY1 = WATER_TOP - 10;
+  const bannerY2 = WATER_BOT + 10;
+
+  // Glow
+  const grad = X.createLinearGradient(fx - 20, 0, fx + 20, 0);
+  grad.addColorStop(0, 'transparent');
+  grad.addColorStop(0.5, 'rgba(232,200,74,0.2)');
+  grad.addColorStop(1, 'transparent');
+  X.fillStyle = grad;
+  X.fillRect(fx - 20, WATER_TOP, 40, WATER_BOT - WATER_TOP);
+
+  // Vertical poles on banks
+  X.fillStyle = '#888';
+  X.fillRect(fx - 4, bannerY1 - 40, 8, 50);
+  X.fillRect(fx - 4, bannerY2 - 10, 8, 50);
+
+  // Checkered pattern across the water
+  const rows = Math.ceil((WATER_BOT - WATER_TOP) / squareW);
+  for (let r = 0; r < rows; r++) {
+    const sy = WATER_TOP + r * squareW;
+    const isEven = r % 2 === 0;
+    X.fillStyle = isEven ? 'rgba(255,255,255,0.85)' : 'rgba(0,0,0,0.7)';
+    X.fillRect(fx - 3, sy, 6, Math.min(squareW, WATER_BOT - sy));
+    // Alternating check
+    X.fillStyle = isEven ? 'rgba(0,0,0,0.7)' : 'rgba(255,255,255,0.85)';
+    X.fillRect(fx - 3, sy + squareW / 2, 6, Math.min(squareW / 2, WATER_BOT - sy - squareW / 2));
+  }
+
+  // Banner at top
+  X.fillStyle = lv.color;
+  X.shadowColor = lv.color; X.shadowBlur = 10;
+  X.beginPath(); X.roundRect(fx - 60, bannerY1 - 42, 120, 28, 4); X.fill();
+  X.shadowBlur = 0;
+  X.font = 'bold 13px Fredoka One,cursive';
+  X.fillStyle = '#fff'; X.textAlign = 'center'; X.textBaseline = 'middle';
+  X.fillText('🏁 FINISH — ' + targetDist + 'm', fx, bannerY1 - 28);
+  X.textAlign = 'left'; X.textBaseline = 'alphabetic';
+
+  // Distance counter when close
+  if (remaining < 100) {
+    const pulse = Math.abs(Math.sin(gs.frame * 0.15)) * 0.4 + 0.7;
+    X.font = 'bold 18px Boogaloo,cursive';
+    X.fillStyle = `rgba(232,200,74,${pulse})`;
+    X.shadowColor = '#e8c84a'; X.shadowBlur = 10;
+    X.textAlign = 'center';
+    X.fillText(Math.ceil(remaining) + 'm TO FINISH!', C.width / 2, WATER_TOP - 20);
+    X.shadowBlur = 0; X.textAlign = 'left';
+  }
+}
+
+
+// ── RETRY SYSTEM ──────────────────────────────────────────────────────────────
+let retryUsed = false; // one retry per level
+
+function showRetryScreen() {
+  const lv = LEVELS[currentLevel];
+  document.getElementById('retry-title').textContent = 'WRECKED! 🚤💥';
+  document.getElementById('retry-level').textContent =
+    'Level ' + lv.num + ' — ' + lv.name;
+  document.getElementById('retry-reason').textContent =
+    gs.deathReason || 'The swamp got ya, cher.';
+  document.getElementById('retry-lives').textContent =
+    [0,1,2].map(i => i < gs.lives ? '❤️' : '🖤').join('');
+  const retryBtn = document.getElementById('btn-retry');
+  if (retryUsed) {
+    retryBtn.disabled = true;
+    retryBtn.style.opacity = '0.35';
+    retryBtn.textContent = '🚫 RETRY USED';
+  } else {
+    retryBtn.disabled = false;
+    retryBtn.style.opacity = '1';
+    retryBtn.textContent = '🔄 TRY AGAIN';
+  }
+  document.getElementById('retry-screen').classList.add('show');
+}
+
+function hideRetryScreen() {
+  document.getElementById('retry-screen').classList.remove('show');
+}
+
+document.getElementById('btn-retry').addEventListener('click', () => {
+  if (retryUsed) return;
+  retryUsed = true;
+  hideRetryScreen();
+  // Restart the current level, restore 1 life as mercy
+  gs.lives = Math.max(1, gs.lives);
+  setTimeout(() => {
+    showLevelIntro(currentLevel, () => startLevel(currentLevel));
+  }, 300);
+});
+
+document.getElementById('btn-no-retry').addEventListener('click', () => {
+  hideRetryScreen();
+  setTimeout(endGame, 300);
+});
+
+// ── CAJUN VOICE ────────────────────────────────────────────────────────────────
+function speakCajun() {
+  if (!window.speechSynthesis) return;
+  // Cancel any ongoing speech
+  window.speechSynthesis.cancel();
+  const lines = [
+    "Welcome to da Peerless Swamp, cher!",
+    "Watch out for Big Earl — he hungry!",
+    "Lay-say lay bon tom roo-lay, yeah!",
+  ];
+  lines.forEach((text, i) => {
+    const utt = new SpeechSynthesisUtterance(text);
+    utt.rate = 0.82;   // slightly slow for drawl
+    utt.pitch = 0.88;  // slightly lower, gravelly
+    utt.volume = 0.9;
+    // Try to pick a deep/Southern voice if available
+    const voices = window.speechSynthesis.getVoices();
+    const preferred = voices.find(v =>
+      v.lang.startsWith('en') && (v.name.toLowerCase().includes('male') || v.name.toLowerCase().includes('guy') || v.name.toLowerCase().includes('daniel') || v.name.toLowerCase().includes('fred'))
+    ) || voices.find(v => v.lang.startsWith('en')) || null;
+    if (preferred) utt.voice = preferred;
+    // Stagger each line
+    setTimeout(() => {
+      if (window.speechSynthesis) window.speechSynthesis.speak(utt);
+    }, i * 2200);
+  });
+}
+
+// Voices may not load immediately — wait for them
+window.speechSynthesis.onvoiceschanged = () => {}; // trigger load
+
+// ── RANK TITLES ───────────────────────────────────────────────────────────────
+function getRank(score) {
+  if (score >= 2000) return { title:'SWAMP LEGEND 🐊👑', color:'#FFD700' };
+  if (score >= 1200) return { title:'BAYOU BOSS 🐊⚡',  color:'#FF8C00' };
+  if (score >= 700)  return { title:'GATOR WRANGLER 🤠', color:'#00FF88' };
+  if (score >= 350)  return { title:'SWAMP RUNNER 🚤',   color:'#00CFFF' };
+  if (score >= 150)  return { title:'SWAMP ROOKIE 🌿',   color:'#7aad6a' };
+  return              { title:'BAIT 🦟',                  color:'#cc4422' };
+}
+function getReason(ob){const opts=REASONS[ob.id]||["The swamp got ya, cher"];return opts[Math.floor(Math.random()*opts.length)];}
+
+function floatText(text,x,y,color){const el=document.createElement('div');el.className='floater';el.style.cssText=`left:${x}px;top:${y}px;color:${color};`;el.textContent=text;document.body.appendChild(el);setTimeout(()=>el.remove(),1000);}
+
+// ── DRAW ──────────────────────────────────────────────────────────────────────
+function draw(){
+  X.clearRect(0,0,C.width,C.height);
+  drawBG();
+  drawCollectibles();
+  obstacles.forEach(drawObs);
+  if(gs.running)drawPlayer();
+  drawEarl();
+  drawFinishLine();
+  // Invincible flash
+  if(gs.invincible>0){const a=(Math.sin(gs.frame*.3)*.5+.5)*.25;X.fillStyle=`rgba(255,50,50,${a})`;X.fillRect(0,0,C.width,C.height);}
+  // Slow-mo blue tint overlay
+  if(isPUActive('slowmo')){X.fillStyle='rgba(0,255,136,.04)';X.fillRect(0,0,C.width,C.height);}
+  // Repellent green particle sparks
+  if(isPUActive('repellent')&&Math.random()>.7){const rx=player.x+Math.random()*120-60,ry=WATER_TOP+Math.random()*(WATER_BOT-WATER_TOP);X.fillStyle='rgba(255,140,0,.5)';X.beginPath();X.arc(rx,ry,2,0,Math.PI*2);X.fill();}
+  // Speed lines when boosting
+  if(player.boosting){for(let i=0;i<8;i++){const ly=WATER_TOP+Math.random()*(WATER_BOT-WATER_TOP);const len=30+Math.random()*60;X.strokeStyle=`rgba(255,200,100,${.08+Math.random()*.08})`;X.lineWidth=1;X.beginPath();X.moveTo(player.x-40,ly);X.lineTo(player.x-40-len,ly);X.stroke();}}
+}
+
+// ── START / END ───────────────────────────────────────────────────────────────
+
+// ── TUTORIAL COUNTDOWN ────────────────────────────────────────────────────────
+const TIPS = [
+  '↑ ↓ to steer',
+  'SPACE to boost ⚡',
+  'SHIFT / TAP to jump 🚀',
+  'Green glow = jumpable!',
+  'Thread obstacles for NEAR MISS bonus 🔥',
+  'Watch for lunging gators! ⚠️',
+  '⛽ Fuel cans refill your boost tank',
+  '🛡️ Shield blocks one collision!',
+  '🐢 Slow-Mo freezes the swamp',
+  '🧲 Magnet pulls goodies to you',
+  '🦟 Gator Repellent scares off gators',
+  '🔧 Rare Repair Kit restores a life!',
+];
+
+function runCountdown(cb) {
+  const el = document.getElementById('countdown');
+  const num = document.getElementById('countdown-num');
+  const tip = document.getElementById('countdown-tip');
+  el.style.opacity = '1';
+  let count = 3;
+  num.textContent = count;
+  tip.textContent = TIPS[Math.floor(Math.random()*TIPS.length)];
+  const interval = setInterval(() => {
+    count--;
+    if (count > 0) {
+      num.textContent = count;
+      tip.textContent = TIPS[Math.floor(Math.random()*TIPS.length)];
+    } else {
+      clearInterval(interval);
+      num.textContent = "GO! 🐊";
+      setTimeout(() => {
+        el.style.opacity = '0';
+        setTimeout(cb, 320);
+      }, 600);
+    }
+  }, 1000);
+}
+
+function startGame(){
+  // Reset full game state
+  gs={running:false,score:0,dist:0,bonusScore:0,lives:3,speed:4,naturalSpeed:4,maxSpeed:13,baseSpeed:4,frame:0,
+      bestScore:gs.bestScore||parseInt(localStorage.getItem(LS_BEST)||'0'),deathReason:'',
+      fuel:100,maxFuel:100,nearMissStreak:0,nearMissTimer:0,
+      gatorsDodged:0,collectibles:0,jumps:0,nearmisses:0,invincible:0,lastSign:0,signInterval:700};
+  currentLevel = 0;
+  document.getElementById('title').classList.add('off');
+  document.getElementById('gameover').classList.add('off');
+  document.getElementById('level-complete').classList.remove('show');
+  // Show level 1 intro, then start level
+  showLevelIntro(0, () => startLevel(0));
+}
+
+function endGame(){
+  gs.running=false;
+  earlActive=false;
+  // Show retry screen first (unless it's a victory or retry already handled)
+  if (!gs._skipRetry && gs.lives <= 0 && !levelFinishTriggered) {
+    showRetryScreen();
+    return;
+  }
+  gs._skipRetry = false;
+  const prevBest = gs.bestScore;
+  if(gs.score>gs.bestScore){
+    gs.bestScore=gs.score;
+    try{localStorage.setItem(LS_BEST,gs.bestScore);}catch(e){}
+  }
+
+  // ── Score breakdown ──────────────────────────────────────────
+  const distPts   = Math.floor(gs.dist);
+  const nmPts     = gs.nearmisses * 15;
+  const gatorPts  = gs.gatorsDodged * 10;
+  const puPts     = gs.collectibles * 15;
+  const noHitBonus = gs.lives === 3 ? 300 : gs.lives === 2 ? 100 : 0;
+  const totalCalc = distPts + nmPts + gatorPts + puPts + noHitBonus;
+
+  // ── Populate screen ──────────────────────────────────────────
+  document.getElementById('go-score').textContent = totalCalc + 'pts';
+  document.getElementById('go-reason').textContent = gs.deathReason || 'The swamp won this time, cher.';
+  const hl = HEAT_LEVELS[currentHeatLevel];
+  document.getElementById('go-heat').textContent = '🌡️ Reached ' + hl.label;
+  document.getElementById('go-heat').style.color = hl.color;
+
+  // Close to best
+  const closeToBest = document.getElementById('go-close-to-best');
+  if(gs.score < prevBest && prevBest > 0){
+    const gap = prevBest - gs.score;
+    closeToBest.textContent = '😤 You were ' + gap + 'm from your best run!';
+    closeToBest.style.color = '#FF8C00';
+  } else if(gs.score >= prevBest && prevBest > 0){
+    closeToBest.textContent = '🏆 NEW PERSONAL BEST!';
+    closeToBest.style.color = '#FFD700';
+  } else {
+    closeToBest.textContent = '';
+  }
+
+  document.getElementById('go-best').textContent = 'Best: ' + gs.bestScore + 'pts';
+
+  // Score breakdown table
+  document.getElementById('go-score-breakdown').innerHTML =
+    `<div style="color:#e8c84a;font-size:14px;margin-bottom:4px;font-family:Boogaloo,cursive;letter-spacing:1px;">SCORE BREAKDOWN</div>` +
+    `📏 Distance: <span style="color:#f5e6c8;float:right;">+${distPts}</span><br>` +
+    `🔥 Near Misses (×${gs.nearmisses}): <span style="color:#f5e6c8;float:right;">+${nmPts}</span><br>` +
+    `🐊 Gators Dodged (×${gs.gatorsDodged}): <span style="color:#f5e6c8;float:right;">+${gatorPts}</span><br>` +
+    `⚡ Power-ups (×${gs.collectibles}): <span style="color:#f5e6c8;float:right;">+${puPts}</span><br>` +
+    (noHitBonus > 0 ? `💚 No-Hit Bonus: <span style="color:#00FF88;float:right;">+${noHitBonus}</span><br>` : '') +
+    `<div style="border-top:1px solid rgba(232,200,74,.2);margin-top:4px;padding-top:4px;color:#e8c84a;font-family:Boogaloo,cursive;font-size:15px;">TOTAL: <span style="float:right;">${totalCalc}</span></div>`;
+
+  // Rank
+  const rank = getRank(totalCalc);
+  let rankEl = document.getElementById('go-rank');
+  if(!rankEl){
+    rankEl = document.createElement('div');
+    rankEl.id = 'go-rank';
+    rankEl.style.cssText = 'font-family:Boogaloo,cursive;font-size:26px;margin-bottom:10px;';
+    document.getElementById('go-close-to-best').after(rankEl);
+  }
+  rankEl.style.color = rank.color;
+  rankEl.style.textShadow = '0 0 14px ' + rank.color;
+  rankEl.textContent = rank.title;
+
+  document.getElementById('go-stats').innerHTML =
+    `🚤 Distance: <span>${Math.floor(gs.dist)}m</span> &nbsp;|&nbsp; ` +
+    `❤️ Lives Left: <span>${gs.lives}</span> &nbsp;|&nbsp; ` +
+    `🚀 Jumps: <span>${gs.jumps}</span>`;
+
+  document.getElementById('gameover').classList.remove('off');
+}
+
+document.getElementById('s-start').addEventListener('click', () => {
+  speakCajun();
+  startGame();
+});
+document.getElementById('s-restart').addEventListener('click', startGame);
+
+// ── CREEPY SWAMP MUSIC ENGINE v2 ─────────────────────────────────────────────
+let audioCtx = null, musicOn = true;
+let masterGain, musicNodes = [], ambientNodes = [], musicLoopTimer = null;
+
+function initAudio() {
+  if (audioCtx) return;
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  masterGain = audioCtx.createGain();
+  masterGain.gain.setValueAtTime(0.75, audioCtx.currentTime);
+  masterGain.connect(audioCtx.destination);
+  startMusic();
+  startAmbience();
+}
+
+// ── CORE HELPERS ──────────────────────────────────────────────────────────────
+function makeOsc(type, freq, start, stop, gainVals, filterType, filterFreq, dest) {
+  if (!audioCtx || !musicOn) return;
+  const osc = audioCtx.createOscillator();
+  const g = audioCtx.createGain();
+  const f = audioCtx.createBiquadFilter();
+  osc.type = type; osc.frequency.value = freq;
+  f.type = filterType; f.frequency.value = filterFreq;
+  g.gain.setValueAtTime(0, start);
+  gainVals.forEach(([t, v]) => g.gain.linearRampToValueAtTime(v, start + t));
+  g.gain.linearRampToValueAtTime(0, stop);
+  osc.connect(f); f.connect(g); g.connect(dest || masterGain);
+  osc.start(start); osc.stop(stop);
+  musicNodes.push(osc);
+}
+
+function makeNoise(dur, gainVal, filterType, filterFreq, dest, loop=false) {
+  if (!audioCtx || !musicOn) return null;
+  const sr = audioCtx.sampleRate;
+  const buf = audioCtx.createBuffer(1, sr * (loop ? 3 : dur), sr);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < d.length; i++) d[i] = (Math.random()*2-1);
+  const src = audioCtx.createBufferSource();
+  const g = audioCtx.createGain();
+  const f = audioCtx.createBiquadFilter();
+  f.type = filterType; f.frequency.value = filterFreq;
+  src.buffer = buf; src.loop = loop;
+  g.gain.value = gainVal;
+  src.connect(f); f.connect(g); g.connect(dest || masterGain);
+  src.start();
+  if (!loop) src.stop(audioCtx.currentTime + dur);
+  return src;
+}
+
+// ── SPOOKY DRONE — deep rumbling foundation ───────────────────────────────────
+function startDrone() {
+  if (!audioCtx || !musicOn) return;
+  // Two detuned sines create a beating, unsettling rumble
+  [36.7, 36.9, 18.35].forEach((freq, i) => {
+    const osc = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    const lfo = audioCtx.createOscillator(); // slow tremolo
+    const lfoG = audioCtx.createGain();
+    osc.type = i === 2 ? 'triangle' : 'sine';
+    osc.frequency.value = freq;
+    lfo.frequency.value = 0.07 + i * 0.03; // very slow
+    lfoG.gain.value = i === 2 ? 0.008 : 0.015;
+    lfo.connect(lfoG); lfoG.connect(g.gain);
+    g.gain.setValueAtTime(i === 2 ? 0.04 : 0.09, audioCtx.currentTime);
+    osc.connect(g); g.connect(masterGain);
+    lfo.start(); osc.start();
+    ambientNodes.push(osc, lfo);
+  });
+}
+
+// ── EERIE MELODY — pentatonic diminished, slow and haunting ──────────────────
+// D diminished scale — unsettling and swamp-like
+const CREEP_SCALE = [73.4, 82.4, 87.3, 98.0, 110.0, 116.5, 130.8, 146.8];
+const CREEP_BASS  = [18.35, 20.6, 23.1, 21.8, 19.4];
+
+function scheduleCreepyLoop() {
+  if (!audioCtx || !musicOn) return;
+  const now = audioCtx.currentTime;
+  const BEAT = 60 / 52; // slow 52 BPM for maximum dread
+  const BAR  = BEAT * 4;
+  const BARS = 8;
+  const total = BAR * BARS;
+
+  // ── BASS: slow, irregular, creeping ──────────────────────────────────────
+  const bassBeats = [0, 1.8, 3.2, 4.5, 6.1, 7.0, 8.8, 10.2, 12.0, 13.5, 15.1, 16.9, 18.0, 20.3, 22.1, 24.0];
+  bassBeats.forEach((bt, i) => {
+    const freq = CREEP_BASS[i % CREEP_BASS.length];
+    const dur  = 1.2 + Math.random() * 0.8;
+    const t    = now + bt * BEAT * 0.5;
+    makeOsc('sine', freq, t, t+dur, [[0.1,0.18],[dur*0.6,0.14]], 'lowpass', 180);
+    // occasional low harmonic growl
+    if (i % 3 === 0) makeOsc('triangle', freq*1.5, t+0.05, t+dur*0.7, [[0.08,0.04]], 'bandpass', 120);
+  });
+
+  // ── MELODY: slow gliding notes, feels like something watching you ──────────
+  const melody = [
+    {n:0,dur:3.5},{n:3,dur:2},{n:1,dur:4},{n:5,dur:2.5},
+    {n:2,dur:3},{n:6,dur:2},{n:4,dur:3.5},{n:0,dur:4},
+    {n:3,dur:2.5},{n:7,dur:3},{n:1,dur:2},{n:5,dur:4},
+  ];
+  let mt = now + BEAT * 1.5;
+  melody.forEach((m, i) => {
+    const freq = CREEP_SCALE[m.n % CREEP_SCALE.length];
+    const dur  = m.dur * BEAT * 0.88;
+    if (mt > now + total) return;
+    // Main note — thin, ghostly sawtooth through bandpass
+    const osc = audioCtx.createOscillator();
+    const g   = audioCtx.createGain();
+    const f   = audioCtx.createBiquadFilter();
+    const rev = audioCtx.createBiquadFilter(); // fake reverb via allpass
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(freq, mt);
+    osc.frequency.linearRampToValueAtTime(freq * (1 + (Math.random()-0.5)*0.015), mt + dur);
+    f.type = 'bandpass'; f.frequency.value = freq * 1.8; f.Q.value = 3;
+    rev.type = 'allpass'; rev.frequency.value = 800;
+    g.gain.setValueAtTime(0, mt);
+    g.gain.linearRampToValueAtTime(0.06, mt + 0.25);
+    g.gain.setValueAtTime(0.055, mt + dur * 0.7);
+    g.gain.linearRampToValueAtTime(0, mt + dur);
+    osc.connect(f); f.connect(rev); rev.connect(g); g.connect(masterGain);
+    osc.start(mt); osc.stop(mt + dur + 0.1);
+    musicNodes.push(osc);
+
+    // Ghost harmonic — octave up, very quiet
+    if (i % 2 === 0) makeOsc('sine', freq*2, mt+0.1, mt+dur*0.6, [[0.2,0.02]], 'lowpass', 600);
+
+    mt += m.dur * BEAT * 0.75;
+  });
+
+  // ── HEARTBEAT PULSE — the swamp has a pulse ───────────────────────────────
+  for (let b = 0; b < BARS * 2; b++) {
+    const bt = now + b * BAR * 0.5;
+    if (bt > now + total) break;
+    // Thump-thump
+    makeOsc('sine', 55, bt,       bt+0.18, [[0.02,0.18],[0.1,0.12]], 'lowpass', 100);
+    makeOsc('sine', 52, bt+0.22,  bt+0.38, [[0.02,0.10],[0.1,0.06]], 'lowpass', 100);
+  }
+
+  // ── WHISPER NOISE — unsettling texture ───────────────────────────────────
+  for (let i = 0; i < 4; i++) {
+    const wt = now + Math.random() * total * 0.8 + total * 0.1;
+    const wd = 1.5 + Math.random() * 2;
+    const src = makeNoise(wd, 0.018, 'bandpass', 800 + Math.random() * 400);
+    // fade in/out
+    if (src) {
+      src.playbackRate.value = 0.5 + Math.random() * 0.5;
+    }
+  }
+
+  // ── DISTANT SPLASH — something big moved in the water ─────────────────────
+  if (Math.random() > 0.5) {
+    const st = now + Math.random() * total * 0.7 + 4;
+    makeNoise(0.4, 0.06, 'lowpass', 300);
+    makeOsc('sine', 80, st, st+0.6, [[0.01,0.12],[0.3,0.04]], 'lowpass', 200);
+  }
+
+  musicLoopTimer = setTimeout(scheduleCreepyLoop, (total - 0.3) * 1000);
+}
+
+// ── AMBIENT LAYER ─────────────────────────────────────────────────────────────
+function startAmbience() {
+  if (!audioCtx) return;
+  // Deep water rumble
+  const wr = makeNoise(3, 0.06, 'lowpass', 120, null, true);
+  if (wr) ambientNodes.push(wr);
+
+  // High cricket texture
+  const cr = audioCtx.createBuffer(1, audioCtx.sampleRate * 4, audioCtx.sampleRate);
+  const cd = cr.getChannelData(0);
+  for (let i = 0; i < cd.length; i++) {
+    const p = (i / audioCtx.sampleRate * 22) % 1;
+    cd[i] = p < 0.12 ? Math.sin(i * 0.22) * 0.018 : 0;
+  }
+  const csrc = audioCtx.createBufferSource();
+  const cg = audioCtx.createGain(); const cf = audioCtx.createBiquadFilter();
+  cf.type = 'highpass'; cf.frequency.value = 4000; cg.gain.value = 0.15;
+  csrc.buffer = cr; csrc.loop = true;
+  csrc.connect(cf); cf.connect(cg); cg.connect(masterGain); csrc.start();
+  ambientNodes.push(csrc);
+
+  // Occasional deep frog grunt
+  scheduleFrogGrunt();
+
+  // Random distant owl hoot
+  scheduleOwl();
+
+  // Start drone
+  startDrone();
+}
+
+function scheduleFrogGrunt() {
+  if (!audioCtx || !musicOn) return;
+  const delay = 3000 + Math.random() * 6000;
+  setTimeout(() => {
+    if (!audioCtx || !musicOn) return;
+    const now = audioCtx.currentTime;
+    const freq = 80 + Math.random() * 40;
+    // Three-note grunt: bwoop bwoop bwoop
+    [0, 0.18, 0.36].forEach(offset => {
+      const osc = audioCtx.createOscillator();
+      const g = audioCtx.createGain();
+      const f = audioCtx.createBiquadFilter();
+      f.type = 'bandpass'; f.frequency.value = freq * 1.5; f.Q.value = 5;
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(freq * 1.1, now + offset);
+      osc.frequency.exponentialRampToValueAtTime(freq * 0.75, now + offset + 0.14);
+      g.gain.setValueAtTime(0.07, now + offset);
+      g.gain.exponentialRampToValueAtTime(0.001, now + offset + 0.22);
+      osc.connect(f); f.connect(g); g.connect(masterGain);
+      osc.start(now + offset); osc.stop(now + offset + 0.25);
+    });
+    scheduleFrogGrunt();
+  }, delay);
+}
+
+function scheduleOwl() {
+  if (!audioCtx || !musicOn) return;
+  const delay = 8000 + Math.random() * 15000;
+  setTimeout(() => {
+    if (!audioCtx || !musicOn) return;
+    const now = audioCtx.currentTime;
+    // Classic hoo-hoo
+    [0, 0.55].forEach((offset, i) => {
+      const osc = audioCtx.createOscillator();
+      const g = audioCtx.createGain();
+      const vib = audioCtx.createOscillator();
+      const vibG = audioCtx.createGain();
+      osc.type = 'sine'; osc.frequency.value = 220 - i * 20;
+      vib.frequency.value = 5; vibG.gain.value = 3;
+      vib.connect(vibG); vibG.connect(osc.frequency);
+      g.gain.setValueAtTime(0, now+offset);
+      g.gain.linearRampToValueAtTime(0.06, now+offset+0.08);
+      g.gain.setValueAtTime(0.05, now+offset+0.3);
+      g.gain.linearRampToValueAtTime(0, now+offset+0.5);
+      osc.connect(g); g.connect(masterGain);
+      vib.start(now+offset); osc.start(now+offset);
+      vib.stop(now+offset+0.55); osc.stop(now+offset+0.55);
+    });
+    scheduleOwl();
+  }, delay);
+}
+
+function startMusic() {
+  if (!audioCtx || !musicOn) return;
+  scheduleCreepyLoop();
+}
+
+function stopMusic() {
+  if (musicLoopTimer) clearTimeout(musicLoopTimer);
+  musicNodes.forEach(n => { try { n.stop(); } catch(e){} });
+  ambientNodes.forEach(n => { try { n.stop(); } catch(e){} });
+  musicNodes = []; ambientNodes = [];
+}
+
+function toggleMusic() {
+  musicOn = !musicOn;
+  const btn = document.getElementById('music-btn');
+  if (musicOn) {
+    btn.textContent = '🎵';
+    if (audioCtx) { startMusic(); startAmbience(); }
+  } else {
+    btn.textContent = '🔇';
+    stopMusic();
+  }
+}
+
+document.getElementById('music-btn').addEventListener('click', toggleMusic);
+
+// Init audio on first user interaction
+const origStart = startGame;
+window.startGame = function() {
+  initAudio();
+  origStart();
+};
+document.getElementById('s-start').removeEventListener('click', origStart);
+document.getElementById('s-restart').removeEventListener('click', origStart);
+document.getElementById('s-start').addEventListener('click', window.startGame);
+document.getElementById('s-restart').addEventListener('click', window.startGame);
+
+function loop(){update();draw();requestAnimationFrame(loop);}
+loop();
+</script>
+</body>
+</html>
